@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsObject, IsOptional, IsString } from 'class-validator';
 export class UpdateNodeDto {
   @IsOptional()
   @IsString()
@@ -11,4 +11,8 @@ export class UpdateNodeDto {
   @IsOptional()
   @IsBoolean()
   isCollapsed?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  content?: Record<string, unknown>;
 }

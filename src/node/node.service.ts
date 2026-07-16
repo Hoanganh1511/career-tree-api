@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '../../generated/prisma/client';
 import { CreateNodeDto } from './dto/create-node.dto';
 import { UpdateNodeDto } from './dto/update-node.dto';
 
@@ -26,7 +27,13 @@ export class NodeService {
   }
 
   update(nodeId: string, dto: UpdateNodeDto) {
-    return this.prisma.node.update({ where: { id: nodeId }, data: dto });
+    return this.prisma.node.update({
+      where: { id: nodeId },
+      data: {
+        ...dto,
+        content: dto.content as Prisma.InputJsonValue | undefined,
+      },
+    });
   }
 
   remove(nodeId: string) {

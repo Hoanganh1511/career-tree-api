@@ -38,6 +38,7 @@ model Node {
   parent          Node?       @relation("NodeToNode", fields: [parentId], references: [id], onDelete: Cascade)
   children        Node[]      @relation("NodeToNode")
   title           String
+  content         Json?       // Tiptap/ProseMirror JSON — long-form notes for this node (distinct from Card, which is the quick activity log)
   depth           Int         @default(0)
   orderIndex      Int         @default(0)
   hiddenFromShare Boolean     @default(false)
