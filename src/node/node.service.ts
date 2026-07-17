@@ -16,12 +16,16 @@ export class NodeService {
       });
       depth = parent.depth + 1;
     }
+    const siblingCount = await this.prisma.node.count({
+      where: { workspaceId, parentId: dto.parentId ?? null },
+    });
     return this.prisma.node.create({
       data: {
         workspaceId,
         parentId: dto.parentId ?? null,
         title: dto.title,
         depth,
+        orderIndex: siblingCount,
       },
     });
   }
@@ -43,7 +47,7 @@ export class NodeService {
   async findTreeForWorkspace(workspaceId: string) {
     const nodes = await this.prisma.node.findMany({
       where: { workspaceId },
-      orderBy: [{ depth: 'asc' }, { orderIndex: 'asc' }],
+      orderBy: [{ depth: 'asc' }, { orderIndex: 'asc' }, { createdAt: 'asc' }],
     });
 
     const stats = await this.prisma.card.groupBy({
