@@ -44,10 +44,17 @@ export class NodeService {
     return this.prisma.node.delete({ where: { id: nodeId } });
   }
 
+  findOne(workspaceId: string, nodeId: string) {
+    return this.prisma.node.findFirstOrThrow({
+      where: { id: nodeId, workspaceId },
+    });
+  }
+
   async findTreeForWorkspace(workspaceId: string) {
     const nodes = await this.prisma.node.findMany({
       where: { workspaceId },
       orderBy: [{ depth: 'asc' }, { orderIndex: 'asc' }, { createdAt: 'asc' }],
+      omit: { content: true },
     });
 
     const stats = await this.prisma.card.groupBy({

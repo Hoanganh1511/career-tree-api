@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CardService } from './card.service';
 import { CreateCardDto } from './dto/create-card.dto';
@@ -16,9 +17,20 @@ export class CardController {
   constructor(private cardService: CardService) {}
 
   @Get('nodes/:nodeId/cards')
-  findAll(@Param('nodeId') nodeId: string) {
-    return this.cardService.findAllForNode(nodeId);
+  findAll(
+    @Param('nodeId') nodeId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.cardService.findAllForNode(nodeId, {
+      cursor,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
+  /* 
+  Query string trên URL luôn là text, NestJS không tự ép kiểu number trừ khi bạn dùng parseIntPipe - ở đây làm tay cho đơn giản, k cần thêm pipe
+  
+  */
 
   @Post('nodes/:nodeId/cards')
   create(@Param('nodeId') nodeId: string, @Body() dto: CreateCardDto) {

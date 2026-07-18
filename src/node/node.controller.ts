@@ -20,6 +20,14 @@ export class NodeController {
     return this.nodeService.findTreeForWorkspace(workspaceId);
   }
 
+  @Get('workspaces/:workspaceId/nodes/:nodeId')
+  findOne(
+    @Param('workspaceId') workspaceId: string,
+    @Param('nodeId') nodeId: string,
+  ) {
+    return this.nodeService.findOne(workspaceId, nodeId);
+  }
+
   @Post('workspaces/:workspaceId/nodes')
   create(
     @Param('workspaceId') workspaceId: string,
