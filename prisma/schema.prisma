@@ -38,7 +38,7 @@ model Node {
   parent          Node?       @relation("NodeToNode", fields: [parentId], references: [id], onDelete: Cascade)
   children        Node[]      @relation("NodeToNode")
   title           String
-  content         Json?       // Tiptap/ProseMirror JSON — long-form notes for this node (distinct from Card, which is the quick activity log)
+  content         Json? // Tiptap/ProseMirror JSON — long-form notes for this node (distinct from Card, which is the quick activity log)
   depth           Int         @default(0)
   orderIndex      Int         @default(0)
   hiddenFromShare Boolean     @default(false)
@@ -48,6 +48,7 @@ model Node {
   cards           Card[]
   crossLinksFrom  CrossLink[] @relation("CrossLinkFrom")
   crossLinksTo    CrossLink[] @relation("CrossLinkTo")
+  resources       Resource[]
 
   @@index([workspaceId, parentId])
 }
@@ -60,6 +61,28 @@ model Card {
   orderIndex Int      @default(0)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+
+  @@index([nodeId])
+}
+
+enum ResourceType {
+  ARTICLE
+  VIDEO
+  DOC
+  COURSE
+  BOOK
+}
+
+model Resource {
+  id         String       @id @default(uuid())
+  nodeId     String
+  node       Node         @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  type       ResourceType
+  title      String
+  url        String
+  orderIndex Int          @default(0)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
 
   @@index([nodeId])
 }

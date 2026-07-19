@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { WorkspaceModule } from './workspace/workspace.module';
 import { NodeModule } from './node/node.module';
 import { CardModule } from './card/card.module';
+import { ResourceModule } from './resource/resource.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { CardModule } from './card/card.module';
     WorkspaceModule,
     NodeModule,
     CardModule,
+    ResourceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
