@@ -7,6 +7,8 @@ import { WorkspaceModule } from './workspace/workspace.module';
 import { NodeModule } from './node/node.module';
 import { CardModule } from './card/card.module';
 import { ResourceModule } from './resource/resource.module';
+import { IssueModule } from './issue/issue.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -16,6 +18,8 @@ import { ResourceModule } from './resource/resource.module';
     NodeModule,
     CardModule,
     ResourceModule,
+    IssueModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

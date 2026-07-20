@@ -24,7 +24,11 @@ export class CardService {
 
   create(nodeId: string, dto: CreateCardDto) {
     return this.prisma.card.create({
-      data: { nodeId, content: dto.content as Prisma.InputJsonValue },
+      data: {
+        nodeId,
+        content: dto.content as Prisma.InputJsonValue,
+        kind: dto.kind,
+      },
     });
   }
 

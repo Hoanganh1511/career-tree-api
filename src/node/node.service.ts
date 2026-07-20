@@ -57,21 +57,64 @@ export class NodeService {
       omit: { content: true },
     });
 
-    const stats = await this.prisma.card.groupBy({
-      by: ['nodeId'],
-      where: { node: { workspaceId } },
-      _count: { _all: true },
-      _max: { updatedAt: true },
-    });
+    const [cardStats, resourceStats, issueStats] = await Promise.all([
+      this.prisma.card.groupBy({
+        by: ['nodeId', 'kind'],
+        where: { node: { workspaceId } },
+        _count: { _all: true },
+        _max: { updatedAt: true },
+      }),
+      this.prisma.resource.groupBy({
+        by: ['nodeId'],
+        where: { node: { workspaceId } },
+        _count: { _all: true },
+      }),
+      this.prisma.issue.groupBy({
+        by: ['nodeId'],
+        where: { node: { workspaceId }, resolved: false },
+        _count: { _all: true },
+      }),
+    ]);
+    type OwnStats = {
+      cardCount: number;
+      practiceCount: number;
+      resourceCount: number;
+      openIssueCount: number;
+      lastActivity: Date | null;
+    };
+    const ownStats = new Map<string, OwnStats>();
+    const getOwn = (nodeId: string): OwnStats => {
+      let entry = ownStats.get(nodeId);
+      if (!entry) {
+        entry = {
+          cardCount: 0,
+          practiceCount: 0,
+          resourceCount: 0,
+          openIssueCount: 0,
+          lastActivity: null,
+        };
+        ownStats.set(nodeId, entry);
+      }
+      return entry;
+    };
 
-    const statsByNode = new Map(
-      stats.map((s) => [
-        s.nodeId,
-        { count: s._count._all, last: s._max.updatedAt },
-      ]),
-    );
-
-    //     Gộp con -> cha: branch/root không có card riêng vẫn phản ảnh hoạt động của con cháu
+    for (const s of cardStats) {
+      const entry = getOwn(s.nodeId);
+      entry.cardCount += s._count._all;
+      if (s.kind === 'PRACTICE') entry.practiceCount += s._count._all;
+      if (
+        s._max.updatedAt &&
+        (!entry.lastActivity || s._max.updatedAt > entry.lastActivity)
+      ) {
+        entry.lastActivity = s._max.updatedAt;
+      }
+    }
+    for (const s of resourceStats) {
+      getOwn(s.nodeId).resourceCount += s._count._all;
+    }
+    for (const s of issueStats) {
+      getOwn(s.nodeId).openIssueCount += s._count._all;
+    }
     const childrenOf = new Map<string, string[]>();
 
     for (const n of nodes) {
@@ -83,30 +126,27 @@ export class NodeService {
       }
     }
 
-    const resultMap = new Map<
-      string,
-      { cardCount: number; lastActivity: Date | null }
-    >();
-    function computeFor(nodeId: string): {
-      cardCount: number;
-      lastActivity: Date | null;
-    } {
+    const resultMap = new Map<string, OwnStats>();
+
+    function computeFor(nodeId: string): OwnStats {
       if (resultMap.has(nodeId)) return resultMap.get(nodeId)!;
 
-      const own = statsByNode.get(nodeId);
-      let cardCount = own?.count ?? 0;
-      let lastActivity = own?.last ?? null;
+      const own = getOwn(nodeId);
+      const result: OwnStats = { ...own };
       for (const childId of childrenOf.get(nodeId) ?? []) {
         const childStats = computeFor(childId);
-        cardCount += childStats.cardCount;
+        result.cardCount += childStats.cardCount;
+        result.practiceCount += childStats.practiceCount;
+        result.resourceCount += childStats.resourceCount;
+        result.openIssueCount += childStats.openIssueCount;
         if (
           childStats.lastActivity &&
-          (!lastActivity || childStats.lastActivity > lastActivity)
+          (!result.lastActivity ||
+            childStats.lastActivity > result.lastActivity)
         ) {
-          lastActivity = childStats.lastActivity;
+          result.lastActivity = childStats.lastActivity;
         }
       }
-      const result = { cardCount, lastActivity };
       resultMap.set(nodeId, result);
       return result;
     }

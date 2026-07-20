@@ -5,6 +5,10 @@ export class UpdateNodeDto {
   title?: string;
 
   @IsOptional()
+  @IsString()
+  goal?: string;
+
+  @IsOptional()
   @IsBoolean()
   hiddenFromShare?: boolean;
 
