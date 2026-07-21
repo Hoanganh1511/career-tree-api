@@ -1,22 +1,27 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { WorkspaceService } from './workspace.service';
+import { CreateWorkspaceDto } from './dto/create-workspace.dto';
+import { CurrentUserId } from '../auth/current-user.decorator';
 
 @Controller('workspaces')
 export class WorkspaceController {
   constructor(private workspaceService: WorkspaceService) {}
 
   @Get()
-  async findAll() {
-    return this.workspaceService.findAll();
+  findAll(@CurrentUserId() userId: string) {
+    return this.workspaceService.findAll(userId);
   }
 
   @Post()
-  async create(@Body('name') name: string) {
-    return this.workspaceService.create(name || 'My Career Tree');
+  create(@CurrentUserId() userId: string, @Body() dto: CreateWorkspaceDto) {
+    return this.workspaceService.create(userId, dto.name || 'My Career Tree');
   }
 
   @Get(':workspaceId')
-  async findOne(@Param('workspaceId') workspaceId: string) {
-    return this.workspaceService.findOne(workspaceId);
+  findOne(
+    @CurrentUserId() userId: string,
+    @Param('workspaceId') workspaceId: string,
+  ) {
+    return this.workspaceService.findOne(userId, workspaceId);
   }
 }

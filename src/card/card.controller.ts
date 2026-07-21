@@ -11,6 +11,7 @@ import {
 import { CardService } from './card.service';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
+import { CurrentUserId } from '../auth/current-user.decorator';
 
 @Controller()
 export class CardController {
@@ -18,32 +19,37 @@ export class CardController {
 
   @Get('nodes/:nodeId/cards')
   findAll(
+    @CurrentUserId() userId: string,
     @Param('nodeId') nodeId: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
   ) {
-    return this.cardService.findAllForNode(nodeId, {
+    return this.cardService.findAllForNode(userId, nodeId, {
       cursor,
       limit: limit ? Number(limit) : undefined,
     });
   }
-  /* 
-  Query string trên URL luôn là text, NestJS không tự ép kiểu number trừ khi bạn dùng parseIntPipe - ở đây làm tay cho đơn giản, k cần thêm pipe
-  
-  */
 
   @Post('nodes/:nodeId/cards')
-  create(@Param('nodeId') nodeId: string, @Body() dto: CreateCardDto) {
-    return this.cardService.create(nodeId, dto);
+  create(
+    @CurrentUserId() userId: string,
+    @Param('nodeId') nodeId: string,
+    @Body() dto: CreateCardDto,
+  ) {
+    return this.cardService.create(userId, nodeId, dto);
   }
 
   @Patch('cards/:cardId')
-  update(@Param('cardId') cardId: string, @Body() dto: UpdateCardDto) {
-    return this.cardService.update(cardId, dto);
+  update(
+    @CurrentUserId() userId: string,
+    @Param('cardId') cardId: string,
+    @Body() dto: UpdateCardDto,
+  ) {
+    return this.cardService.update(userId, cardId, dto);
   }
 
   @Delete('cards/:cardId')
-  remove(@Param('cardId') cardId: string) {
-    return this.cardService.remove(cardId);
+  remove(@CurrentUserId() userId: string, @Param('cardId') cardId: string) {
+    return this.cardService.remove(userId, cardId);
   }
 }

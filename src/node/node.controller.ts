@@ -10,39 +10,49 @@ import {
 import { NodeService } from './node.service';
 import { CreateNodeDto } from './dto/create-node.dto';
 import { UpdateNodeDto } from './dto/update-node.dto';
+import { CurrentUserId } from '../auth/current-user.decorator';
 
 @Controller()
 export class NodeController {
   constructor(private nodeService: NodeService) {}
 
   @Get('workspaces/:workspaceId/nodes')
-  findTree(@Param('workspaceId') workspaceId: string) {
-    return this.nodeService.findTreeForWorkspace(workspaceId);
+  findTree(
+    @CurrentUserId() userId: string,
+    @Param('workspaceId') workspaceId: string,
+  ) {
+    return this.nodeService.findTreeForWorkspace(userId, workspaceId);
   }
 
   @Get('workspaces/:workspaceId/nodes/:nodeId')
   findOne(
+    @CurrentUserId() userId: string,
     @Param('workspaceId') workspaceId: string,
     @Param('nodeId') nodeId: string,
   ) {
-    return this.nodeService.findOne(workspaceId, nodeId);
+    return this.nodeService.findOne(userId, workspaceId, nodeId);
   }
 
   @Post('workspaces/:workspaceId/nodes')
   create(
+    @CurrentUserId() userId: string,
     @Param('workspaceId') workspaceId: string,
     @Body() dto: CreateNodeDto,
   ) {
-    return this.nodeService.create(workspaceId, dto);
+    return this.nodeService.create(userId, workspaceId, dto);
   }
 
   @Patch('workspaces/:workspaceId/nodes/:nodeId')
-  update(@Param('nodeId') nodeId: string, @Body() dto: UpdateNodeDto) {
-    return this.nodeService.update(nodeId, dto);
+  update(
+    @CurrentUserId() userId: string,
+    @Param('nodeId') nodeId: string,
+    @Body() dto: UpdateNodeDto,
+  ) {
+    return this.nodeService.update(userId, nodeId, dto);
   }
 
   @Delete('workspaces/:workspaceId/nodes/:nodeId')
-  remove(@Param('nodeId') nodeId: string) {
-    return this.nodeService.remove(nodeId);
+  remove(@CurrentUserId() userId: string, @Param('nodeId') nodeId: string) {
+    return this.nodeService.remove(userId, nodeId);
   }
 }

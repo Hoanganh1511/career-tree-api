@@ -3,12 +3,18 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { CreateNodeDto } from './dto/create-node.dto';
 import { UpdateNodeDto } from './dto/update-node.dto';
-
+import { OwnershipService } from 'src/common/ownership.service';
+import { computeStreak, STREAK_LOOKBACK_DAYS } from './streak.util';
 @Injectable()
 export class NodeService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private ownership: OwnershipService,
+  ) {}
 
-  async create(workspaceId: string, dto: CreateNodeDto) {
+  async create(userId: string, workspaceId: string, dto: CreateNodeDto) {
+    await this.ownership.assertWorkspaceOwner(workspaceId, userId);
+
     let depth = 0;
     if (dto.parentId) {
       const parent = await this.prisma.node.findUniqueOrThrow({
@@ -30,7 +36,8 @@ export class NodeService {
     });
   }
 
-  update(nodeId: string, dto: UpdateNodeDto) {
+  async update(userId: string, nodeId: string, dto: UpdateNodeDto) {
+    await this.ownership.assertNodeOwner(nodeId, userId);
     return this.prisma.node.update({
       where: { id: nodeId },
       data: {
@@ -40,41 +47,54 @@ export class NodeService {
     });
   }
 
-  remove(nodeId: string) {
+  async remove(userId: string, nodeId: string) {
+    await this.ownership.assertNodeOwner(nodeId, userId);
     return this.prisma.node.delete({ where: { id: nodeId } });
   }
 
-  findOne(workspaceId: string, nodeId: string) {
+  async findOne(userId: string, workspaceId: string, nodeId: string) {
+    await this.ownership.assertWorkspaceOwner(workspaceId, userId);
     return this.prisma.node.findFirstOrThrow({
       where: { id: nodeId, workspaceId },
     });
   }
-
-  async findTreeForWorkspace(workspaceId: string) {
+  async findTreeForWorkspace(userId: string, workspaceId: string) {
+    await this.ownership.assertWorkspaceOwner(workspaceId, userId);
     const nodes = await this.prisma.node.findMany({
       where: { workspaceId },
       orderBy: [{ depth: 'asc' }, { orderIndex: 'asc' }, { createdAt: 'asc' }],
       omit: { content: true },
     });
 
-    const [cardStats, resourceStats, issueStats] = await Promise.all([
-      this.prisma.card.groupBy({
-        by: ['nodeId', 'kind'],
-        where: { node: { workspaceId } },
-        _count: { _all: true },
-        _max: { updatedAt: true },
-      }),
-      this.prisma.resource.groupBy({
-        by: ['nodeId'],
-        where: { node: { workspaceId } },
-        _count: { _all: true },
-      }),
-      this.prisma.issue.groupBy({
-        by: ['nodeId'],
-        where: { node: { workspaceId }, resolved: false },
-        _count: { _all: true },
-      }),
-    ]);
+    const streakCutoff = new Date(
+      Date.now() - STREAK_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const [cardStats, resourceStats, issueStats, recentCards] =
+      await Promise.all([
+        this.prisma.card.groupBy({
+          by: ['nodeId', 'kind'],
+          where: { node: { workspaceId } },
+          _count: { _all: true },
+          _max: { updatedAt: true },
+        }),
+        this.prisma.resource.groupBy({
+          by: ['nodeId'],
+          where: { node: { workspaceId } },
+          _count: { _all: true },
+        }),
+        this.prisma.issue.groupBy({
+          by: ['nodeId'],
+          where: { node: { workspaceId }, resolved: false },
+          _count: { _all: true },
+        }),
+        // Chi lay du du lieu de tinh streak/7-ngay gan nhat - khong keo ca content Card.
+        this.prisma.card.findMany({
+          where: { node: { workspaceId }, updatedAt: { gte: streakCutoff } },
+          select: { nodeId: true, updatedAt: true },
+        }),
+      ]);
+
     type OwnStats = {
       cardCount: number;
       practiceCount: number;
@@ -115,6 +135,19 @@ export class NodeService {
     for (const s of issueStats) {
       getOwn(s.nodeId).openIssueCount += s._count._all;
     }
+
+    // Ngay (UTC, "YYYY-MM-DD") co hoat dong cua RIENG node do (chua gop con).
+    const ownActiveDays = new Map<string, Set<string>>();
+    for (const c of recentCards) {
+      const key = c.updatedAt.toISOString().slice(0, 10);
+      let set = ownActiveDays.get(c.nodeId);
+      if (!set) {
+        set = new Set();
+        ownActiveDays.set(c.nodeId, set);
+      }
+      set.add(key);
+    }
+
     const childrenOf = new Map<string, string[]>();
 
     for (const n of nodes) {
@@ -151,6 +184,27 @@ export class NodeService {
       return result;
     }
 
-    return nodes.map((n) => ({ ...n, ...computeFor(n.id) }));
+    // Ngay hoat dong gop ca nhanh con (giong cach computeFor gop cardCount) -
+    // de node cha cung phan anh dung "ca nhanh co dang hoc deu khong", nhat
+    // quan voi cach lastActivity/cardCount hien tai da cascade len cha.
+    const activeDaysResultMap = new Map<string, Set<string>>();
+    function computeActiveDays(nodeId: string): Set<string> {
+      const cached = activeDaysResultMap.get(nodeId);
+      if (cached) return cached;
+
+      const result = new Set(ownActiveDays.get(nodeId) ?? []);
+      for (const childId of childrenOf.get(nodeId) ?? []) {
+        for (const day of computeActiveDays(childId)) result.add(day);
+      }
+      activeDaysResultMap.set(nodeId, result);
+      return result;
+    }
+
+    const today = new Date();
+    return nodes.map((n) => ({
+      ...n,
+      ...computeFor(n.id),
+      streak: computeStreak(computeActiveDays(n.id), today),
+    }));
   }
 }

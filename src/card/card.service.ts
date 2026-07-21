@@ -1,13 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { OwnershipService } from 'src/common/ownership.service';
 import { Prisma } from '../../generated/prisma/client';
 import { CreateCardDto } from './dto/create-card.dto';
 import { UpdateCardDto } from './dto/update-card.dto';
 
 @Injectable()
 export class CardService {
-  constructor(private prisma: PrismaService) {}
-  findAllForNode(nodeId: string, params: { cursor?: string; limit?: number }) {
+  constructor(
+    private prisma: PrismaService,
+    private ownership: OwnershipService,
+  ) {}
+
+  async findAllForNode(
+    userId: string,
+    nodeId: string,
+    params: { cursor?: string; limit?: number },
+  ) {
+    await this.ownership.assertNodeOwner(nodeId, userId);
     const { cursor, limit = 20 } = params;
     return this.prisma.card.findMany({
       where: { nodeId },
@@ -15,14 +25,10 @@ export class CardService {
       take: limit,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
     });
-    // cursor: {id: cursor} nói với prisma: bắt đầu từ bản ghi có `id` này trở đi
-    // skip:1 - bắt buộc phải có khi dùng cursor, vì bản thân bản ghi tại cursor đã được trả về ở lần gọi trước rồi, skip:1 - để bỏ qua nó, không bị lặp lại
-    // Tức: lần gọi tiếp theo -> truyền cursor = id của bản ghi cuối cùng đã nhận ở lần trước
-    // Đó là lý do phải đổi `orderBy` từ orderIndex: 'asc' sang createdAt: 'desc'; cursor pagination cần thứ tự ổn định
-    //  và không đổi giữa các lần gọi (nếu 1 bản ghi mới được thêm vào giữa lúc đang phân trang mà thứ tự bị xáo trộn thì cursor sẽ trỏ sai chỗ)
   }
 
-  create(nodeId: string, dto: CreateCardDto) {
+  async create(userId: string, nodeId: string, dto: CreateCardDto) {
+    await this.ownership.assertNodeOwner(nodeId, userId);
     return this.prisma.card.create({
       data: {
         nodeId,
@@ -32,14 +38,16 @@ export class CardService {
     });
   }
 
-  update(cardId: string, dto: UpdateCardDto) {
+  async update(userId: string, cardId: string, dto: UpdateCardDto) {
+    await this.ownership.assertCardOwner(cardId, userId);
     return this.prisma.card.update({
       where: { id: cardId },
       data: { content: dto.content as Prisma.InputJsonValue },
     });
   }
 
-  remove(cardId: string) {
+  async remove(userId: string, cardId: string) {
+    await this.ownership.assertCardOwner(cardId, userId);
     return this.prisma.card.delete({ where: { id: cardId } });
   }
 }

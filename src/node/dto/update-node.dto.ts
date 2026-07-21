@@ -1,4 +1,10 @@
-import { IsBoolean, IsObject, IsOptional, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 export class UpdateNodeDto {
   @IsOptional()
   @IsString()
@@ -19,4 +25,12 @@ export class UpdateNodeDto {
   @IsOptional()
   @IsObject()
   content?: Record<string, unknown>;
+
+  @IsOptional()
+  @IsNumber()
+  x?: number;
+
+  @IsOptional()
+  @IsNumber()
+  y?: number;
 }

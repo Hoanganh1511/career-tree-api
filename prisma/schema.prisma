@@ -29,6 +29,10 @@ model Workspace {
   nodes         Node[]
   crossLinks    CrossLink[]
   notifications Notification[]
+  owner         User?          @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  ownerId       String?
+
+  @@index([ownerId])
 }
 
 enum NotificationType {
@@ -62,6 +66,8 @@ model Node {
   content         Json? // Tiptap/ProseMirror JSON — long-form notes for this node (distinct from Card, which is the quick activity log)
   depth           Int         @default(0)
   orderIndex      Int         @default(0)
+  x               Float?
+  y               Float?
   hiddenFromShare Boolean     @default(false)
   isCollapsed     Boolean     @default(false)
   createdAt       DateTime    @default(now())
@@ -139,4 +145,19 @@ model CrossLink {
   createdAt   DateTime  @default(now())
 
   @@unique([fromNodeId, toNodeId])
+}
+
+model User {
+  id         String      @id @default(uuid())
+  googleId   String      @unique
+  email      String      @unique
+  name       String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  workspaces Workspace[]
+}
+
+model SystemFlag {
+  id                 Int     @id @default(1)
+  legacyBackfillDone Boolean @default(false)
 }
