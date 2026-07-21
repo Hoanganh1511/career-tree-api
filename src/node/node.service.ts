@@ -46,6 +46,13 @@ export class NodeService {
       },
     });
   }
+  async resetLayout(userId: string, workspaceId: string) {
+    await this.ownership.assertWorkspaceOwner(workspaceId, userId);
+    await this.prisma.node.updateMany({
+      where: { workspaceId },
+      data: { x: null, y: null },
+    });
+  }
 
   async remove(userId: string, nodeId: string) {
     await this.ownership.assertNodeOwner(nodeId, userId);

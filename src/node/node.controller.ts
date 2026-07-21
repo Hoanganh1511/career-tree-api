@@ -3,10 +3,13 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
 } from '@nestjs/common';
+
 import { NodeService } from './node.service';
 import { CreateNodeDto } from './dto/create-node.dto';
 import { UpdateNodeDto } from './dto/update-node.dto';
@@ -40,6 +43,14 @@ export class NodeController {
     @Body() dto: CreateNodeDto,
   ) {
     return this.nodeService.create(userId, workspaceId, dto);
+  }
+  @Patch('workspaces/:workspaceId/nodes/reset-layout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  resetLayout(
+    @CurrentUserId() userId: string,
+    @Param('workspaceId') workspaceId: string,
+  ) {
+    return this.nodeService.resetLayout(userId, workspaceId);
   }
 
   @Patch('workspaces/:workspaceId/nodes/:nodeId')
