@@ -69,6 +69,8 @@ model Node {
   learningOutcomes String[]    @default([])
   title            String
   goal             String?
+  isPinned         Boolean     @default(false) //nut bookmark
+  tags             String[]    @default([]) // Javascript, TypeScript, Nestjs.,...
   content          Json? // Tiptap/ProseMirror JSON — long-form notes for this node (distinct from Card, which is the quick activity log)
   depth            Int         @default(0)
   orderIndex       Int         @default(0)

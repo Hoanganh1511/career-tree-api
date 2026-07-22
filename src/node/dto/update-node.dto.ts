@@ -61,4 +61,13 @@ export class UpdateNodeDto {
   @IsArray()
   @IsString({ each: true })
   learningOutcomes?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  isPinned?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }
