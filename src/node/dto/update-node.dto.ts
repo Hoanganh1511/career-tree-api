@@ -4,7 +4,10 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsEnum,
+  IsArray,
 } from 'class-validator';
+import { NodeKind, Difficulty } from '../../../generated/prisma/client';
 export class UpdateNodeDto {
   @IsOptional()
   @IsString()
@@ -33,4 +36,29 @@ export class UpdateNodeDto {
   @IsOptional()
   @IsNumber()
   y?: number;
+
+  @IsOptional()
+  @IsEnum(NodeKind)
+  kind?: NodeKind;
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @IsOptional()
+  @IsEnum(Difficulty)
+  difficulty?: Difficulty;
+
+  @IsOptional()
+  @IsString()
+  estimatedTime?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  prerequisites?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  learningOutcomes?: string[];
 }

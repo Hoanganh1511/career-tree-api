@@ -30,6 +30,7 @@ export class NodeService {
         workspaceId,
         parentId: dto.parentId ?? null,
         title: dto.title,
+        kind: dto.kind,
         depth,
         orderIndex: siblingCount,
       },

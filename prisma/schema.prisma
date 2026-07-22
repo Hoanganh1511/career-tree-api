@@ -55,28 +55,34 @@ model Notification {
 }
 
 model Node {
-  id              String      @id @default(uuid())
-  workspaceId     String
-  workspace       Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  parentId        String?
-  parent          Node?       @relation("NodeToNode", fields: [parentId], references: [id], onDelete: Cascade)
-  children        Node[]      @relation("NodeToNode")
-  title           String
-  goal            String?
-  content         Json? // Tiptap/ProseMirror JSON — long-form notes for this node (distinct from Card, which is the quick activity log)
-  depth           Int         @default(0)
-  orderIndex      Int         @default(0)
-  x               Float?
-  y               Float?
-  hiddenFromShare Boolean     @default(false)
-  isCollapsed     Boolean     @default(false)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  cards           Card[]
-  crossLinksFrom  CrossLink[] @relation("CrossLinkFrom")
-  crossLinksTo    CrossLink[] @relation("CrossLinkTo")
-  resources       Resource[]
-  issues          Issue[]
+  id               String      @id @default(uuid())
+  workspaceId      String
+  workspace        Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parentId         String?
+  parent           Node?       @relation("NodeToNode", fields: [parentId], references: [id], onDelete: Cascade)
+  children         Node[]      @relation("NodeToNode")
+  kind             NodeKind    @default(BRANCH)
+  category         String?
+  difficulty       Difficulty?
+  estimatedTime    String?
+  prerequisites    String[]    @default([])
+  learningOutcomes String[]    @default([])
+  title            String
+  goal             String?
+  content          Json? // Tiptap/ProseMirror JSON — long-form notes for this node (distinct from Card, which is the quick activity log)
+  depth            Int         @default(0)
+  orderIndex       Int         @default(0)
+  x                Float?
+  y                Float?
+  hiddenFromShare  Boolean     @default(false)
+  isCollapsed      Boolean     @default(false)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  cards            Card[]
+  crossLinksFrom   CrossLink[] @relation("CrossLinkFrom")
+  crossLinksTo     CrossLink[] @relation("CrossLinkTo")
+  resources        Resource[]
+  issues           Issue[]
 
   @@index([workspaceId, parentId])
 }
@@ -105,6 +111,17 @@ enum ResourceType {
   DOC
   COURSE
   BOOK
+}
+
+enum NodeKind {
+  BRANCH
+  TOPIC
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
 }
 
 model Resource {

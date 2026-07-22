@@ -1,4 +1,5 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { NodeKind } from '../../../generated/prisma/client';
 export class CreateNodeDto {
   @IsOptional()
   @IsUUID()
@@ -6,4 +7,8 @@ export class CreateNodeDto {
 
   @IsString()
   title!: string;
+
+  @IsOptional()
+  @IsEnum(NodeKind)
+  kind?: NodeKind;
 }
