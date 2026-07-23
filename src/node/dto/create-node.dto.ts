@@ -11,4 +11,8 @@ export class CreateNodeDto {
   @IsOptional()
   @IsEnum(NodeKind)
   kind?: NodeKind;
+
+  @IsOptional()
+  @IsUUID()
+  tierId?: string;
 }

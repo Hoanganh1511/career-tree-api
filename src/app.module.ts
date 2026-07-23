@@ -12,6 +12,8 @@ import { CardModule } from './card/card.module';
 import { ResourceModule } from './resource/resource.module';
 import { IssueModule } from './issue/issue.module';
 import { NotificationModule } from './notification/notification.module';
+import { TierModule } from './tier/tier.module';
+import { CategoryModule } from './category/category.module';
 
 @Module({
   imports: [
@@ -26,6 +28,8 @@ import { NotificationModule } from './notification/notification.module';
     ResourceModule,
     IssueModule,
     NotificationModule,
+    TierModule,
+    CategoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

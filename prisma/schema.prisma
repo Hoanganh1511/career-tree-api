@@ -27,12 +27,32 @@ model Workspace {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   nodes         Node[]
+  categories    Category[]
   crossLinks    CrossLink[]
   notifications Notification[]
   owner         User?          @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   ownerId       String?
 
   @@index([ownerId])
+}
+
+// Skill Tree: tang phan cap moi giua Workspace va Tier - 1 Workspace (=
+// 1 "Skill Set") co nhieu Category (vd "Frontend", "Backend"), MOI Category
+// co bo Tier rieng cua no (khong dung chung Tier giua cac Category).
+model Category {
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  description String? // mo ta ngan, hien trong Knowledge Block Summary
+  icon        String? // slug icon (vd simple-icons/lucide), tuy chon
+  color       String? // hex, dung cho khoi the Category ben trai canvas
+  orderIndex  Int       @default(0)
+  tiers       Tier[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId])
 }
 
 enum NotificationType {
@@ -78,6 +98,10 @@ model Node {
   y                Float?
   hiddenFromShare  Boolean     @default(false)
   isCollapsed      Boolean     @default(false)
+  // Skill Tree: null = node chua gan tier (vd node cua Career Tree canvas cu),
+  // gan Tier moi khi node duoc dat vao 1 vi tri tren skill tree.
+  tierId           String?
+  tier             Tier?       @relation(fields: [tierId], references: [id], onDelete: SetNull)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   cards            Card[]
@@ -87,6 +111,23 @@ model Node {
   issues           Issue[]
 
   @@index([workspaceId, parentId])
+  @@index([tierId])
+}
+
+// Tier thuoc ve 1 Category (khong con thuoc truc tiep Workspace) - moi
+// Category co bo Tier rieng cua no.
+model Tier {
+  id         String   @id @default(uuid())
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  label      String // "TIER 1"
+  sublabel   String // "FOUNDATION"
+  orderIndex Int      @default(0)
+  nodes      Node[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([categoryId])
 }
 
 enum CardKind {
@@ -167,13 +208,16 @@ model CrossLink {
 }
 
 model User {
-  id         String      @id @default(uuid())
-  googleId   String      @unique
-  email      String      @unique
-  name       String
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  workspaces Workspace[]
+  id                String      @id @default(uuid())
+  googleId          String      @unique
+  email             String      @unique
+  name              String
+  // Dashboard Skill Tree: dung de so sanh benchmark theo nam kinh nghiem
+  // (Phase 4) - de null neu nguoi dung chua khai bao.
+  yearsOfExperience Int?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  workspaces        Workspace[]
 }
 
 model SystemFlag {

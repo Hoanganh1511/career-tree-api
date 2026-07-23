@@ -31,6 +31,7 @@ export class NodeService {
         parentId: dto.parentId ?? null,
         title: dto.title,
         kind: dto.kind,
+        tierId: dto.tierId,
         depth,
         orderIndex: siblingCount,
       },
@@ -72,6 +73,7 @@ export class NodeService {
       where: { workspaceId },
       orderBy: [{ depth: 'asc' }, { orderIndex: 'asc' }, { createdAt: 'asc' }],
       omit: { content: true },
+      include: { tier: true },
     });
 
     const streakCutoff = new Date(

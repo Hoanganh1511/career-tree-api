@@ -6,6 +6,7 @@ import {
   IsString,
   IsEnum,
   IsArray,
+  IsUUID,
 } from 'class-validator';
 import { NodeKind, Difficulty } from '../../../generated/prisma/client';
 export class UpdateNodeDto {
@@ -70,4 +71,8 @@ export class UpdateNodeDto {
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+
+  @IsOptional()
+  @IsUUID()
+  tierId?: string;
 }
