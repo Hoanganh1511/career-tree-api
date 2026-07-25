@@ -64,6 +64,28 @@ export class OwnershipService {
     }
   }
 
+  async assertCategoryOwner(categoryId: string, userId: string): Promise<void> {
+    const category = await this.prisma.category.findUnique({
+      where: { id: categoryId },
+      select: { workspace: { select: { ownerId: true } } },
+    });
+    if (!category || category.workspace.ownerId !== userId) {
+      throw new NotFoundException(`Category ${categoryId} not found`);
+    }
+  }
+
+  async assertTierOwner(tierId: string, userId: string): Promise<void> {
+    const tier = await this.prisma.tier.findUnique({
+      where: { id: tierId },
+      select: {
+        category: { select: { workspace: { select: { ownerId: true } } } },
+      },
+    });
+    if (!tier || tier.category.workspace.ownerId !== userId) {
+      throw new NotFoundException(`Tier ${tierId} not found`);
+    }
+  }
+
   async assertNotificationOwner(
     notificationId: string,
     userId: string,
