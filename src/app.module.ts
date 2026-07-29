@@ -14,6 +14,7 @@ import { IssueModule } from './issue/issue.module';
 import { NotificationModule } from './notification/notification.module';
 import { TierModule } from './tier/tier.module';
 import { CategoryModule } from './category/category.module';
+import { PostModule } from './post/post.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { CategoryModule } from './category/category.module';
     NotificationModule,
     TierModule,
     CategoryModule,
+    PostModule,
   ],
   controllers: [AppController],
   providers: [AppService],

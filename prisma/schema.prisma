@@ -208,19 +208,124 @@ model CrossLink {
 }
 
 model User {
-  id                String      @id @default(uuid())
-  googleId          String      @unique
-  email             String      @unique
+  id                String       @id @default(uuid())
+  googleId          String       @unique
+  email             String       @unique
   name              String
   // Dashboard Skill Tree: dung de so sanh benchmark theo nam kinh nghiem
   // (Phase 4) - de null neu nguoi dung chua khai bao.
   yearsOfExperience Int?
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  // "Dang xuat khoi moi thiet bi": moi token noi bo co `iat` TRUOC moc nay
+  // deu bi tu choi (xem JwtAuthGuard). Session cua Auth.js la JWT stateless
+  // (khong co session store) nen day la cach duy nhat thu hoi duoc session
+  // ma khong phai doi ca co che session - xem docs/user-schema-design.md.
+  tokensValidAfter  DateTime?
+  // Danh tinh cong khai cho feed (Post.author) - xem docs/user-schema-design.md
+  // muc 4.1/4.2 (Phase 1). Nullable vi user dong bo qua Google sync KHONG co
+  // san 3 field nay (Google chi cho googleId/email/name/picture) - UserService
+  // tu sinh username tu email luc sync neu con null.
+  username          String?      @unique
+  avatarUrl         String?
+  verified          Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
   workspaces        Workspace[]
+  posts             Post[]
+  followerCount     Int          @default(0)
+  followingCount    Int          @default(0)
+  following         UserFollow[] @relation("Follower")
+  followedBy        UserFollow[] @relation("Followee")
+  blocksMade        UserBlock[]  @relation("Blocker")
+  blockedBy         UserBlock[]  @relation("Blocked")
 }
 
 model SystemFlag {
   id                 Int     @id @default(1)
   legacyBackfillDone Boolean @default(false)
+}
+
+// Feed Trang chu - truoc day 100% mock o frontend (enggo/src/content/
+// home-feed-mock.ts), gio la du lieu that. 1 bang CHUNG cho ca 24 "kind" bai
+// dang (dung 1 bang + cot `data: Json` chua field rieng tung loai, giong cach
+// Card.content dang lam cho Node) thay vi 24 bang/cot rieng - tranh no schema.
+// `kind` luu SCREAMING_SNAKE (dung convention enum cua repo); API tra ve/nhan
+// vao dang kebab-case ("skill-report") khop voi frontend Post["kind"] union -
+// chuyen doi 2 chieu nam trong post.service.ts (PostModule), KHONG trong DTO.
+enum PostKind {
+  TEXT
+  IMAGE
+  GALLERY
+  VIDEO
+  FILE
+  LINK
+  RESOURCE
+  NOTE
+  PROJECT_UPDATE
+  ACHIEVEMENT
+  MILESTONE
+  QUESTION
+  POLL
+  CAREER_UPDATE
+  SKILL_UPDATE
+  NODE_CREATED
+  KNOWLEDGE_BLOCK
+  TIMELINE_EVENT
+  CODE_SNIPPET
+  IDEA
+  TUTORIAL
+  EXPERIMENT
+  EVENT
+  SKILL_REPORT
+}
+
+enum FollowStatus {
+  ACTIVE
+  PENDING
+}
+
+model UserBlock {
+  blockerId String
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([blockerId, blockedId])
+  @@index([blockerId])
+}
+
+model UserFollow {
+  followerId String
+  follower   User         @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followeeId String
+  followee   User         @relation("Followee", fields: [followeeId], references: [id], onDelete: Cascade)
+  status     FollowStatus @default(ACTIVE)
+  createdAt  DateTime     @default(now())
+
+  @@id([followerId, followeeId])
+  @@index([followeeId, createdAt])
+  @@index([followerId, createdAt])
+}
+
+model Post {
+  id            String   @id @default(uuid())
+  authorId      String
+  author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  kind          PostKind
+  // Field rieng tung kind (content/title/image/poll options/...) - shape khop
+  // voi tung nhanh cua Post union o frontend, TRU cac field icon/accent rieng
+  // le (achievement/project-update/knowledge-block/tutorial/link/resource) -
+  // nhung field do gio lay theo KIND tu POST_KIND_META o frontend thay vi luu
+  // rieng tung post, tranh phai serialize component icon (khong the luu DB).
+  data          Json
+  // So tinh, seed san - CHUA co bang Like/Comment that, bam Like/Comment o UI
+  // hien la tuong tac cuc bo (xem ActionButton.tsx), chua ghi lai DB.
+  likesCount    Int      @default(0)
+  commentsCount Int      @default(0)
+  repostsCount  Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([createdAt])
 }

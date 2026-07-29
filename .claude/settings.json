@@ -1,7 +1,20 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx prettier *)"
+      "Bash(npx prettier *)",
+      "Bash(npx eslint *)",
+      "Bash(npx tsc *)",
+      "Bash(npx next build*)",
+      "Bash(npm run lint*)",
+      "Bash(npm run build*)",
+      "Bash(npm run format*)",
+      "Bash(npm run test*)",
+      "Bash(pnpm lint*)",
+      "Bash(pnpm build*)",
+      "Bash(pnpm format*)",
+      "Bash(pnpm test*)",
+      "Bash(npx prisma generate*)",
+      "Bash(npx prisma migrate status*)"
     ]
   }
 }

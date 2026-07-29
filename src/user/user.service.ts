@@ -13,9 +13,45 @@ export class UserService {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.upsert({
         where: { googleId: dto.googleId },
-        update: { email: dto.email, name: dto.name },
-        create: { googleId: dto.googleId, email: dto.email, name: dto.name },
+        // avatarUrl luon dong bo lai theo Google (nguon duy nhat hien tai) -
+        // username thi KHONG, chi sinh 1 LAN duy nhat khi con null (xem duoi),
+        // tranh ghi de neu sau nay them tinh nang tu doi username rieng.
+        update: { email: dto.email, name: dto.name, avatarUrl: dto.avatarUrl },
+        create: {
+          googleId: dto.googleId,
+          email: dto.email,
+          name: dto.name,
+          avatarUrl: dto.avatarUrl,
+        },
       });
+
+      // User dong bo qua Google KHONG co san username (Google chi tra
+      // googleId/email/name/picture) - can 1 gia tri de dung trong URL
+      // profile (/u/:username) va Post.author. Chi sinh khi con null, khong
+      // ghi de - dung slug tu phan truoc @ cua email, doi ky tu la/so, them
+      // hau to so neu trung.
+      if (!user.username) {
+        const base =
+          dto.email
+            .split('@')[0]
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '') || 'user';
+        let candidate = base;
+        let attempt = 0;
+        while (
+          await tx.user.findUnique({
+            where: { username: candidate },
+            select: { id: true },
+          })
+        ) {
+          attempt += 1;
+          candidate = `${base}${attempt}`;
+        }
+        await tx.user.update({
+          where: { id: user.id },
+          data: { username: candidate },
+        });
+      }
 
       const claim = await tx.systemFlag.updateMany({
         where: { id: 1, legacyBackfillDone: false },
@@ -40,6 +76,18 @@ export class UserService {
 
       return { id: user.id };
     });
+  }
+
+  // "Dang xuat khoi moi thiet bi" - danh dau moc thoi gian, moi token noi bo
+  // phat hanh truoc moc nay se bi JwtAuthGuard tu choi. Khong xoa session nao
+  // ca (khong co session store de xoa), chi lam chung het hieu luc.
+  async revokeAllSessions(userId: string): Promise<{ revokedAt: string }> {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { tokensValidAfter: new Date() },
+      select: { tokensValidAfter: true },
+    });
+    return { revokedAt: user.tokensValidAfter!.toISOString() };
   }
 
   private async ensureSystemFlagRow(): Promise<void> {
