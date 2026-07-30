@@ -15,6 +15,7 @@ import { NotificationModule } from './notification/notification.module';
 import { TierModule } from './tier/tier.module';
 import { CategoryModule } from './category/category.module';
 import { PostModule } from './post/post.module';
+import { FollowModule } from './follow/follow.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { PostModule } from './post/post.module';
     TierModule,
     CategoryModule,
     PostModule,
+    FollowModule,
   ],
   controllers: [AppController],
   providers: [AppService],

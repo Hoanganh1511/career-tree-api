@@ -237,6 +237,7 @@ model User {
   followedBy        UserFollow[] @relation("Followee")
   blocksMade        UserBlock[]  @relation("Blocker")
   blockedBy         UserBlock[]  @relation("Blocked")
+  profile           UserProfile?
 }
 
 model SystemFlag {
@@ -328,4 +329,16 @@ model Post {
 
   @@index([authorId])
   @@index([createdAt])
+}
+
+model UserProfile {
+  userId        String   @id
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio           String?
+  coverImageUrl String?
+  location      String?
+  websiteUrl    String?
+  pronouns      String?
+  postCount     Int      @default(0)
+  updatedAt     DateTime @updatedAt
 }

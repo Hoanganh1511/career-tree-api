@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { SyncGuard } from '../auth/sync.guard';
 import { CurrentUserId } from '../auth/current-user.decorator';
@@ -21,5 +21,13 @@ export class UserController {
   @Post('me/revoke-sessions')
   revokeSessions(@CurrentUserId() userId: string) {
     return this.userService.revokeAllSessions(userId);
+  }
+
+  @Get(':username')
+  getProfile(
+    @CurrentUserId() viewerId: string,
+    @Param('username') username: string,
+  ) {
+    return this.userService.getProfileByUsername(viewerId, username);
   }
 }

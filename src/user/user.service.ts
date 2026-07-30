@@ -1,11 +1,35 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { SyncUserDto } from './dto/sync-user.dto';
+import { FollowService } from 'src/follow/follow.service';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  private readonly userSelect = {
+    id: true,
+    username: true,
+    name: true,
+    avatarUrl: true,
+    verified: true,
+    createdAt: true,
+    followerCount: true,
+    followingCount: true,
+    profile: {
+      select: {
+        bio: true,
+        coverImageUrl: true,
+        location: true,
+        websiteUrl: true,
+        pronouns: true,
+        postCount: true,
+      },
+    },
+  } satisfies Prisma.UserSelect;
+  constructor(
+    private prisma: PrismaService,
+    private followService: FollowService,
+  ) {}
 
   async syncUser(dto: SyncUserDto): Promise<{ id: string }> {
     await this.ensureSystemFlagRow();
@@ -104,5 +128,50 @@ export class UserService {
       }
       throw e;
     }
+  }
+
+  async canViewProfile(viewerId: string, targetId: string): Promise<boolean> {
+    if (viewerId === targetId) return true;
+    const blocked = await this.followService.isBlockedEitherDirection(
+      viewerId,
+      targetId,
+    );
+    return !blocked;
+  }
+  async getProfileByUsername(viewerId: string, username: string) {
+    const target = await this.prisma.user.findUnique({
+      where: { username },
+      select: this.userSelect,
+    });
+    if (!target) throw new NotFoundException(`User ${username} not found`);
+
+    const canView = await this.canViewProfile(viewerId, target.id);
+    if (!canView) throw new NotFoundException(`User ${username} not found`);
+
+    const isFollowing = await this.prisma.userFollow.findUnique({
+      where: {
+        followerId_followeeId: { followerId: viewerId, followeeId: target.id },
+      },
+      select: { followerId: true },
+    });
+
+    return {
+      id: target.id,
+      username: target.username,
+      displayName: target.name,
+      avatarUrl: target.avatarUrl ?? '',
+      isVerified: target.verified,
+      createdAt: target.createdAt.toISOString(),
+      followerCount: target.followerCount,
+      followingCount: target.followingCount,
+      bio: target.profile?.bio ?? null,
+      coverImageUrl: target.profile?.coverImageUrl ?? null,
+      location: target.profile?.location ?? null,
+      websiteUrl: target.profile?.websiteUrl ?? null,
+      pronouns: target.profile?.pronouns ?? null,
+      postCount: target.profile?.postCount ?? 0,
+      isSelf: viewerId === target.id,
+      isFollowing: isFollowing !== null,
+    };
   }
 }
