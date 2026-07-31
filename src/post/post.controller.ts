@@ -12,11 +12,13 @@ export class PostController {
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
     @Query('authorUsername') authorUsername?: string,
+    @Query('category') category?: string,
   ) {
     return this.postService.findAll({
       cursor,
       limit: limit ? Number(limit) : undefined,
       authorUsername,
+      category,
     });
   }
 

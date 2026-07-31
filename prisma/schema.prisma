@@ -284,6 +284,32 @@ enum FollowStatus {
   PENDING
 }
 
+// "Linh vuc" cua bai dang (vd Frontend/Backend/Data-AI/...) - khop 1-1 voi
+// danh sach linhVuc trong enggo/src/lib/discover/category-taxonomy.ts (slug
+// kebab-case ben frontend -> UPPER_SNAKE_CASE o day, vd "data-ai" ->
+// DATA_AI). Day la TANG LOC DUOC (co index), khac "topic" (JSON tu do, chi
+// de hien thi breadcrumb, khong index duoc).
+enum PostCategory {
+  FRONTEND
+  BACKEND
+  MOBILE
+  GAME_DEV
+  BLOCKCHAIN
+  IOT
+  DEV_TOOLS
+  DATA_AI
+  DATABASE
+  PRODUCT
+  UI_UX
+  DEVOPS
+  CLOUD
+  SYSTEM_DESIGN
+  SECURITY
+  QA_TEST
+  CAREER
+  SOFT_SKILLS
+}
+
 model UserBlock {
   blockerId String
   blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
@@ -313,6 +339,12 @@ model Post {
   authorId      String
   author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   kind          PostKind
+  // Linh vuc bai dang thuoc ve (Frontend/Backend/...) - optional vi khong
+  // phai kind nao cung can gan (vd poll/idea co the khong chon). Day la cot
+  // that, co index, dung de loc o GET /posts?category=... (xem
+  // PostController) - KHAC "topic" (van nam trong `data` JSON ben duoi, chi
+  // de hien thi, khong dung de loc).
+  category      PostCategory?
   // Field rieng tung kind (content/title/image/poll options/...) - shape khop
   // voi tung nhanh cua Post union o frontend, TRU cac field icon/accent rieng
   // le (achievement/project-update/knowledge-block/tutorial/link/resource) -
@@ -329,6 +361,7 @@ model Post {
 
   @@index([authorId])
   @@index([createdAt])
+  @@index([category, createdAt])
 }
 
 model UserProfile {

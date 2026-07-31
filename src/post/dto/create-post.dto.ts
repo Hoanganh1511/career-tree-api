@@ -1,9 +1,18 @@
-import { IsIn, IsNotEmptyObject, IsObject } from 'class-validator';
+import { IsIn, IsNotEmptyObject, IsObject, IsOptional } from 'class-validator';
 import { POST_KINDS, type PostKindApi } from '../post-kind.util';
+import { PostCategory } from '../../../generated/prisma/client';
+
+const POST_CATEGORIES = Object.values(PostCategory);
 
 export class CreatePostDto {
   @IsIn(POST_KINDS)
   kind!: PostKindApi;
+
+  // Linh vuc bai dang thuoc ve - optional, gui dung 1 trong cac gia tri enum
+  // PostCategory (vd "FRONTEND") tu HomeCategoryBar/PostComposer o frontend.
+  @IsOptional()
+  @IsIn(POST_CATEGORIES)
+  category?: PostCategory;
 
   // Field rieng tung kind (content/title/image/poll options/...) - shape khac
   // nhau tuy `kind`, validate chi tiet tung field la viec cua frontend

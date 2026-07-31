@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma } from '../../generated/prisma/client';
+import { Prisma, PostCategory } from '../../generated/prisma/client';
 import { CreatePostDto } from './dto/create-post.dto';
 import { toApiKind, toDbKind } from './post-kind.util';
 
@@ -42,6 +42,7 @@ function toApiPost(post: PostWithAuthor) {
       comments: post.commentsCount,
       reposts: post.repostsCount,
     },
+    category: post.category,
     ...(post.data as Record<string, unknown>),
   };
 }
@@ -57,10 +58,14 @@ export class PostService {
     cursor?: string;
     limit?: number;
     authorUsername?: string;
+    category?: string;
   }) {
-    const { cursor, limit = 30, authorUsername } = params;
+    const { cursor, limit = 30, authorUsername, category } = params;
     const posts = await this.prisma.post.findMany({
-      where: authorUsername ? { author: { username: authorUsername } } : {},
+      where: {
+        ...(authorUsername ? { author: { username: authorUsername } } : {}),
+        ...(category ? { category: category as PostCategory } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: limit,
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
@@ -74,6 +79,7 @@ export class PostService {
       data: {
         authorId: userId,
         kind: toDbKind(dto.kind),
+        category: dto.category,
         data: dto.data as Prisma.InputJsonValue,
       },
       include: { author: { select: authorSelect } },
