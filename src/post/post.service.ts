@@ -3,8 +3,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, PostCategory } from '../../generated/prisma/client';
 import { CreatePostDto } from './dto/create-post.dto';
 import { toApiKind, toDbKind } from './post-kind.util';
+import { UNCATEGORIZED_SLUG } from '../feed-category/feed-category.service';
 
-const authorSelect = {
+// Export de ContestService tra ve post dung CUNG shape voi GET /posts (khong
+// viet lai mapper thu 2 de roi lech field).
+export const authorSelect = {
   id: true,
   username: true,
   name: true,
@@ -23,7 +26,7 @@ type PostWithAuthor = Prisma.PostGetPayload<{
 // `timeAgo`: `following` khong con noi nao doc (bo tab Following tu lau),
 // `timeAgo` thay bang `createdAt` that - frontend tu tinh qua
 // formatRelativeTime() thay vi nhan chuoi "2h" dung san.
-function toApiPost(post: PostWithAuthor) {
+export function toApiPost(post: PostWithAuthor) {
   return {
     id: post.id,
     kind: toApiKind(post.kind),
@@ -58,15 +61,37 @@ export class PostService {
     cursor?: string;
     limit?: number;
     authorUsername?: string;
-    category?: string;
+    category?: string[];
     kind?: string[];
+    careerCategory?: string[];
+    careerGroup?: string;
   }) {
-    const { cursor, limit = 30, authorUsername, category, kind } = params;
+    const {
+      cursor,
+      limit = 30,
+      authorUsername,
+      category,
+      kind,
+      careerCategory,
+      careerGroup,
+    } = params;
     const posts = await this.prisma.post.findMany({
       where: {
         ...(authorUsername ? { author: { username: authorUsername } } : {}),
-        ...(category ? { category: category as PostCategory } : {}),
+        ...(category?.length
+          ? { category: { in: category as PostCategory[] } }
+          : {}),
         ...(kind?.length ? { kind: { in: kind.map(toDbKind) } } : {}),
+        // "chia-se-chung" khong phai category that trong DB (xem
+        // FeedCategoryService) - no nghia la "bai khong gan nganh nghe nao".
+        ...(careerCategory?.length
+          ? careerCategory.includes(UNCATEGORIZED_SLUG)
+            ? { careerCategoryId: null }
+            : { careerCategory: { slug: { in: careerCategory } } }
+          : {}),
+        ...(careerGroup
+          ? { careerCategory: { group: { slug: careerGroup } } }
+          : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: limit,

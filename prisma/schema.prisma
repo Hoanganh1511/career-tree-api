@@ -344,6 +344,91 @@ enum PostCategory {
   MARKETING
 }
 
+// Phan loai bai dang theo LINH VUC NGHE NGHIEP - 2 tang (nhom cha -> nhanh
+// con), KHAC HAN 2 thu de nham ten:
+// - `Category` (o tren): category cua Skill Tree, gan workspaceId, chua Tier.
+// - `PostCategory` (enum): truc "topic" cua Knowledge Worlds (FRONTEND/LLM/...).
+// 1 post co the mang CA HAI phan loai (vd topic=PERFORMANCE +
+// nghe nghiep="Lap trinh web/mobile") nen phai la 2 cot rieng, khong gop.
+//
+// Danh sach nhom/nhanh dinh nghia san qua seed (prisma/seed-posts.ts), user
+// KHONG tu tao duoc.
+model CareerCategoryGroup {
+  id         String           @id @default(uuid())
+  slug       String           @unique
+  name       String
+  icon       String? // slug lucide, tuy chon
+  // CHI dung lam tie-breaker khi 2 nhom bang nhau ve so post 7 ngay - thu tu
+  // hien thi that do so post quyet dinh (xem FeedCategoryService).
+  orderIndex Int              @default(0)
+  categories CareerCategory[]
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+}
+
+model CareerCategory {
+  id         String              @id @default(uuid())
+  groupId    String
+  group      CareerCategoryGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  slug       String              @unique
+  name       String
+  orderIndex Int                 @default(0)
+  posts      Post[]
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@index([groupId])
+}
+
+// CONTEST = cuoc thi co giai thuong/han chot; TOPIC = chu de viet bai thuong
+// truc (khong giai). Ca 2 deu hien thi duoi dang 1 hashtag.
+enum ContestKind {
+  CONTEST
+  TOPIC
+}
+
+enum ContestStatus {
+  OPEN
+  JUDGING
+  CLOSED
+}
+
+model Contest {
+  id            String        @id @default(uuid())
+  slug          String        @unique
+  hashtag       String        @unique // luu KHONG kem dau #, UI tu them
+  title         String
+  description   String
+  kind          ContestKind
+  status        ContestStatus @default(OPEN)
+  partnerName   String? // "Asahi Beverages" -> UI hien "voi ..."
+  coverImageUrl String?
+  accent        String? // hex cho vien the + nen anh bia
+  prize         String?
+  deadline      DateTime?
+  // So tinh san, cung loi voi Post.likesCount - seed cap nhat cho khop so
+  // ban ghi PostContest that.
+  postCount     Int           @default(0)
+  posts         PostContest[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status, createdAt])
+}
+
+// Bang noi tuong minh (dung convention nhu UserFollow/UserBlock) - 1 bai co
+// the tham gia nhieu contest/chu de cung luc.
+model PostContest {
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  contestId String
+  contest   Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([postId, contestId])
+  @@index([contestId, createdAt])
+}
+
 model UserBlock {
   blockerId String
   blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
@@ -369,33 +454,40 @@ model UserFollow {
 }
 
 model Post {
-  id            String   @id @default(uuid())
-  authorId      String
-  author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  kind          PostKind
+  id               String          @id @default(uuid())
+  authorId         String
+  author           User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  kind             PostKind
   // Linh vuc bai dang thuoc ve (Frontend/Backend/...) - optional vi khong
   // phai kind nao cung can gan (vd poll/idea co the khong chon). Day la cot
   // that, co index, dung de loc o GET /posts?category=... (xem
   // PostController) - KHAC "topic" (van nam trong `data` JSON ben duoi, chi
   // de hien thi, khong dung de loc).
-  category      PostCategory?
+  category         PostCategory?
+  // Linh vuc NGHE NGHIEP cua bai (2 tang, xem CareerCategoryGroup) - truc loc
+  // DOC LAP voi `category` o tren: `category` la topic Knowledge World, cot
+  // nay la nganh nghe. Null = bai "Chia se chung" (khong gan nganh cu the).
+  careerCategoryId String?
+  careerCategory   CareerCategory? @relation(fields: [careerCategoryId], references: [id], onDelete: SetNull)
   // Field rieng tung kind (content/title/image/poll options/...) - shape khop
   // voi tung nhanh cua Post union o frontend, TRU cac field icon/accent rieng
   // le (achievement/project-update/knowledge-block/tutorial/link/resource) -
   // nhung field do gio lay theo KIND tu POST_KIND_META o frontend thay vi luu
   // rieng tung post, tranh phai serialize component icon (khong the luu DB).
-  data          Json
+  data             Json
   // So tinh, seed san - CHUA co bang Like/Comment that, bam Like/Comment o UI
   // hien la tuong tac cuc bo (xem ActionButton.tsx), chua ghi lai DB.
-  likesCount    Int      @default(0)
-  commentsCount Int      @default(0)
-  repostsCount  Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  likesCount       Int             @default(0)
+  commentsCount    Int             @default(0)
+  repostsCount     Int             @default(0)
+  contests         PostContest[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@index([authorId])
   @@index([createdAt])
   @@index([category, createdAt])
+  @@index([careerCategoryId, createdAt])
 }
 
 model UserProfile {

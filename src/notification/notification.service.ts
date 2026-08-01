@@ -19,14 +19,22 @@ export class NotificationService {
     });
   }
 
-  async create(userId: string, workspaceId: string, dto: CreateNotificationDto) {
+  async create(
+    userId: string,
+    workspaceId: string,
+    dto: CreateNotificationDto,
+  ) {
     await this.ownership.assertWorkspaceOwner(workspaceId, userId);
     return this.prisma.notification.create({
       data: { workspaceId, ...dto },
     });
   }
 
-  async update(userId: string, notificationId: string, dto: UpdateNotificationDto) {
+  async update(
+    userId: string,
+    notificationId: string,
+    dto: UpdateNotificationDto,
+  ) {
     await this.ownership.assertNotificationOwner(notificationId, userId);
     return this.prisma.notification.update({
       where: { id: notificationId },

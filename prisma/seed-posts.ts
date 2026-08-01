@@ -16,6 +16,26 @@ function daysAgo(n: number): Date {
   return hoursAgo(n * 24);
 }
 
+// 3 kind da co anh THAT rieng trong data (image/gallery/video) - khong can
+// them coverImage cho cac kind nay, tranh trung lap gay hieu lam ("anh nao
+// moi la anh that cua bai").
+const NATIVE_IMAGE_KINDS = new Set<PostKindApi>(['image', 'gallery', 'video']);
+
+// Anh dai dien chung cho MOI kind con lai (text/note/resource/achievement/
+// question/...) - enggo/src/components/discover/home-feed/NoteCard.tsx +
+// ContentTile.tsx fallback ve gradient+icon khi khong co anh, seed them field
+// nay de feed moi luon co anh that thay vi toan gradient. Seed picsum theo
+// topic + index de moi bai ra 1 anh khac nhau, ty le dung 1280:670 khop
+// aspect-1280/670 dang dung o NoteCard.
+function buildCoverImageSeed(
+  topicPath: string[] | undefined,
+  index: number,
+): string {
+  const base = (topicPath?.join('-') ?? 'career-tree').toLowerCase();
+  const slug = base.replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  return `https://picsum.photos/seed/${slug}-${index}/1280/670`;
+}
+
 // Khop dung ACCENT_PALETTE + getBlockAccentColor trong enggo/src/lib/skill-tree/
 // block-accent.ts (khong import xuyen repo duoc nen chep lai nguyen logic -
 // 6 mau, chon theo orderIndex neu Category chua tu dat color rieng).
@@ -91,6 +111,28 @@ const TOPIC_ACCENT: Record<string, string> = {
   Startup: '#d8b4fe',
   Growth: '#6ee7b7',
   Marketing: '#f9a8d4',
+  // --- Them cung luc voi he thong category nghe nghiep 2 tang (7 nhom) ---
+  Data: '#60a5fa',
+  Testing: '#34d399',
+  Branding: '#c084fc',
+  Video: '#fb923c',
+  Writing: '#fbbf24',
+  SEO: '#4ade80',
+  Social: '#38bdf8',
+  PR: '#f87171',
+  Sales: '#fb7185',
+  Project: '#818cf8',
+  Operations: '#2dd4bf',
+  Strategy: '#a78bfa',
+  'Kế toán': '#5eead4',
+  'Tài chính': '#34d399',
+  'Đầu tư': '#facc15',
+  'Tuyển dụng': '#f0abfc',
+  'Lãnh đạo': '#93c5fd',
+  'Đào tạo': '#86efac',
+  'Ngoại ngữ': '#67e8f9',
+  'Giao tiếp': '#fdba74',
+  'Tư duy': '#c4b5fd',
 };
 function topicAccent(category: string): string {
   return TOPIC_ACCENT[category] ?? ACCENT_PALETTE[0];
@@ -152,6 +194,42 @@ const PERSONAS = [
     name: 'Linh Dev',
     username: 'linh.dev',
     avatarUrl: 'https://i.pravatar.cc/150?img=44',
+    verified: false,
+  },
+  // 4 persona NGOAI nganh tech - them cung luc voi he thong category nghe
+  // nghiep 2 tang: 7 nhom cha phu ca Marketing/Tai chinh/Nhan su/Ky nang nen
+  // tang, ma 5 persona cu deu la dev/designer nen de ho viet bai ke toan hay
+  // tuyen dung se rat gia. Cung upsert theo googleId nhu tren.
+  {
+    googleId: 'seed-thao-marketing',
+    email: 'thao.marketing.seed@example.com',
+    name: 'Thảo Nguyễn',
+    username: 'thao.marketing',
+    avatarUrl: 'https://i.pravatar.cc/150?img=45',
+    verified: true,
+  },
+  {
+    googleId: 'seed-hung-finance',
+    email: 'hung.finance.seed@example.com',
+    name: 'Hưng Lê',
+    username: 'hung.finance',
+    avatarUrl: 'https://i.pravatar.cc/150?img=15',
+    verified: false,
+  },
+  {
+    googleId: 'seed-mai-hr',
+    email: 'mai.hr.seed@example.com',
+    name: 'Mai Phạm',
+    username: 'mai.hr',
+    avatarUrl: 'https://i.pravatar.cc/150?img=49',
+    verified: true,
+  },
+  {
+    googleId: 'seed-khoa-content',
+    email: 'khoa.content.seed@example.com',
+    name: 'Khoa Đặng',
+    username: 'khoa.content',
+    avatarUrl: 'https://i.pravatar.cc/150?img=68',
     verified: false,
   },
 ] as const;
@@ -217,6 +295,11 @@ type PostSeed = {
   // khong gan category That (chi co topic hien thi), nen filter
   // GET /posts?category=... tra ve rong cho toi khi co block nay.
   category?: PostCategory;
+  // Slug nhanh nghe nghiep (CareerCategory.slug) - truc phan loai THU HAI,
+  // doc lap voi `category` o tren (`category` = topic Knowledge World). Neu
+  // khong set thi main() tu suy ra tu `category` qua CAREER_BY_POST_CATEGORY;
+  // suy ra khong duoc thi de null = bai thuoc muc "Chia se chung".
+  careerCategory?: string;
 };
 
 const POSTS: PostSeed[] = [
@@ -1640,8 +1723,15 @@ const POSTS_BY_NEW_TOPIC: PostSeed[] = [
     data: {
       topic: topic('Freelance', 'First Client'),
       title: 'Job freelance đầu tiên hoàn thành đúng deadline',
-      description:
+      content:
         '3 tuần làm ngoài giờ, khách hàng hài lòng và đã hẹn job tiếp theo.',
+      // milestone BAT BUOC co `items` (xem union Post trong home-feed-mock.ts)
+      // - bai nay truoc day dung `description` nen MilestoneCard vo khi render.
+      items: [
+        { label: 'Thời gian', value: '3 tuần' },
+        { label: 'Giá trị hợp đồng', value: '18tr' },
+        { label: 'Job tiếp theo', value: 'Đã hẹn' },
+      ],
     },
     at: daysAgo(106),
   },
@@ -1723,6 +1813,1058 @@ const POSTS_BY_NEW_TOPIC: PostSeed[] = [
   },
 ];
 
+// ---------- category nghe nghiep (2 tang) ----------
+// 7 nhom cha / 26 nhanh con. Dinh nghia SAN o day (user khong tu tao duoc,
+// dung scope da chot) - upsert theo slug nen chay lai khong nhan doi.
+// `orderIndex` CHI dung lam tie-breaker: thu tu hien thi that do so bai 7
+// ngay quyet dinh (xem FeedCategoryService.findTree).
+type CareerGroupSeed = {
+  slug: string;
+  name: string;
+  icon: string;
+  categories: { slug: string; name: string }[];
+};
+
+const CAREER_TAXONOMY: CareerGroupSeed[] = [
+  {
+    slug: 'cong-nghe-ky-thuat',
+    name: 'Công nghệ & Kỹ thuật',
+    icon: 'cpu',
+    categories: [
+      { slug: 'lap-trinh-web-mobile', name: 'Lập trình web/mobile' },
+      { slug: 'du-lieu-ai-ml', name: 'Dữ liệu & AI/ML' },
+      { slug: 'devops-ha-tang', name: 'DevOps & Hạ tầng' },
+      { slug: 'kiem-thu-bao-mat', name: 'Kiểm thử & Bảo mật' },
+      { slug: 'quan-ly-san-pham', name: 'Quản lý sản phẩm' },
+    ],
+  },
+  {
+    slug: 'thiet-ke-sang-tao',
+    name: 'Thiết kế & Sáng tạo',
+    icon: 'palette',
+    categories: [
+      { slug: 'ui-ux', name: 'UI/UX' },
+      { slug: 'do-hoa-thuong-hieu', name: 'Đồ hoạ & Thương hiệu' },
+      { slug: 'san-xuat-noi-dung-video', name: 'Sản xuất nội dung/Video' },
+      { slug: 'viet-bien-tap', name: 'Viết & Biên tập' },
+    ],
+  },
+  {
+    slug: 'marketing-truyen-thong',
+    name: 'Marketing & Truyền thông',
+    icon: 'megaphone',
+    categories: [
+      { slug: 'digital-marketing', name: 'Digital Marketing' },
+      { slug: 'seo-content', name: 'SEO & Content' },
+      { slug: 'social-media', name: 'Social Media' },
+      { slug: 'quan-he-cong-chung', name: 'Quan hệ công chúng (PR)' },
+    ],
+  },
+  {
+    slug: 'kinh-doanh-van-hanh',
+    name: 'Kinh doanh & Vận hành',
+    icon: 'briefcase',
+    categories: [
+      { slug: 'ban-hang', name: 'Bán hàng' },
+      { slug: 'quan-ly-du-an', name: 'Quản lý dự án' },
+      { slug: 'van-hanh-quy-trinh', name: 'Vận hành & Quy trình' },
+      { slug: 'chien-luoc', name: 'Chiến lược' },
+    ],
+  },
+  {
+    slug: 'tai-chinh-dau-tu',
+    name: 'Tài chính & Đầu tư',
+    icon: 'wallet',
+    categories: [
+      { slug: 'ke-toan', name: 'Kế toán' },
+      { slug: 'phan-tich-tai-chinh', name: 'Phân tích tài chính' },
+      { slug: 'dau-tu-thi-truong', name: 'Đầu tư & Thị trường' },
+    ],
+  },
+  {
+    slug: 'nhan-su-lanh-dao',
+    name: 'Nhân sự & Lãnh đạo',
+    icon: 'users',
+    categories: [
+      { slug: 'tuyen-dung-hr', name: 'Tuyển dụng & HR' },
+      { slug: 'ky-nang-lanh-dao', name: 'Kỹ năng lãnh đạo' },
+      { slug: 'dao-tao-noi-bo', name: 'Đào tạo nội bộ' },
+    ],
+  },
+  {
+    slug: 'ky-nang-nen-tang',
+    name: 'Kỹ năng nền tảng',
+    icon: 'graduation-cap',
+    categories: [
+      { slug: 'ngoai-ngu', name: 'Ngoại ngữ' },
+      { slug: 'giao-tiep-thuyet-trinh', name: 'Giao tiếp & Thuyết trình' },
+      { slug: 'tu-duy-phan-bien', name: 'Tư duy phản biện' },
+    ],
+  },
+];
+
+// Suy nganh nghe tu topic Knowledge World da gan san cho ~117 bai cu, de
+// khong phai sua tay tung bai. Cac gia tri CO Y bo trong (CAREER, RESUME,
+// INTERVIEW, FREELANCE, REMOTE, PRODUCTIVITY...) la chuyen phat trien su
+// nghiep noi chung, khong thuoc nganh nghe nao -> roi vao "Chia sẻ chung".
+const CAREER_BY_POST_CATEGORY: Partial<Record<PostCategory, string>> = {
+  [PostCategory.FRONTEND]: 'lap-trinh-web-mobile',
+  [PostCategory.BACKEND]: 'lap-trinh-web-mobile',
+  [PostCategory.MOBILE]: 'lap-trinh-web-mobile',
+  [PostCategory.GAME_DEV]: 'lap-trinh-web-mobile',
+  [PostCategory.BLOCKCHAIN]: 'lap-trinh-web-mobile',
+  [PostCategory.IOT]: 'lap-trinh-web-mobile',
+  [PostCategory.DEV_TOOLS]: 'lap-trinh-web-mobile',
+  [PostCategory.DATABASE]: 'lap-trinh-web-mobile',
+  [PostCategory.ALGORITHMS]: 'lap-trinh-web-mobile',
+  [PostCategory.ARCHITECTURE]: 'lap-trinh-web-mobile',
+  [PostCategory.PERFORMANCE]: 'lap-trinh-web-mobile',
+  [PostCategory.DISTRIBUTED_SYSTEMS]: 'lap-trinh-web-mobile',
+  [PostCategory.SYSTEM_DESIGN]: 'lap-trinh-web-mobile',
+  [PostCategory.DATA_AI]: 'du-lieu-ai-ml',
+  [PostCategory.LLM]: 'du-lieu-ai-ml',
+  [PostCategory.AI_AGENTS]: 'du-lieu-ai-ml',
+  [PostCategory.MCP]: 'du-lieu-ai-ml',
+  [PostCategory.RAG]: 'du-lieu-ai-ml',
+  [PostCategory.COMPUTER_VISION]: 'du-lieu-ai-ml',
+  [PostCategory.PROMPT_ENGINEERING]: 'du-lieu-ai-ml',
+  [PostCategory.DEVOPS]: 'devops-ha-tang',
+  [PostCategory.CLOUD]: 'devops-ha-tang',
+  [PostCategory.QA_TEST]: 'kiem-thu-bao-mat',
+  [PostCategory.SECURITY]: 'kiem-thu-bao-mat',
+  [PostCategory.PRODUCT]: 'quan-ly-san-pham',
+  [PostCategory.UI_UX]: 'ui-ux',
+  [PostCategory.UI]: 'ui-ux',
+  [PostCategory.UX]: 'ui-ux',
+  [PostCategory.FIGMA]: 'ui-ux',
+  [PostCategory.DESIGN_SYSTEM]: 'ui-ux',
+  [PostCategory.MOTION]: 'san-xuat-noi-dung-video',
+  [PostCategory.MARKETING]: 'digital-marketing',
+  [PostCategory.GROWTH]: 'digital-marketing',
+  [PostCategory.STARTUP]: 'chien-luoc',
+  [PostCategory.SOFT_SKILLS]: 'giao-tiep-thuyet-trinh',
+};
+
+// Bai MOI trong 7 ngay gan nhat, phu DU 26 nhanh con - bat buoc, vi
+// GET /feed/categories/tree an moi nhanh khong co bai nao trong 7 ngay.
+function careerPost(
+  author: PersonaKey,
+  kind: PostKindApi,
+  careerCategory: string,
+  topicPath: [string, string],
+  data: Record<string, unknown>,
+  hoursOld: number,
+): PostSeed {
+  return {
+    author,
+    kind,
+    careerCategory,
+    data: { topic: topic(...topicPath), ...data },
+    at: hoursAgo(hoursOld),
+  };
+}
+
+const POSTS_BY_CAREER: PostSeed[] = [
+  // === Công nghệ & Kỹ thuật ===
+  careerPost(
+    'lucas.dev',
+    'text',
+    'lap-trinh-web-mobile',
+    ['Frontend', 'React'],
+    {
+      content:
+        'Bỏ hẳn useEffect để đồng bộ state dẫn xuất, tính thẳng trong lúc render. Component từ 180 dòng còn 96, và cái bug "nhấp nháy 1 frame" mà 3 tháng nay không ai tìm ra nguyên nhân cũng biến mất luôn.',
+    },
+    5,
+  ),
+  careerPost(
+    'linh.dev',
+    'question',
+    'lap-trinh-web-mobile',
+    ['Mobile', 'React Native'],
+    {
+      title: 'App RN build release chậm gấp 4 lần debug, mọi người gặp chưa?',
+      content:
+        'Debug build 2 phút, release 8 phút trên cùng máy. Đã bật Hermes, đã tắt source map. Có ai từng khoanh vùng được thủ phạm bằng cách nào không?',
+      tags: ['react-native', 'build', 'hermes'],
+    },
+    27,
+  ),
+  careerPost(
+    'minh.engineer',
+    'note',
+    'du-lieu-ai-ml',
+    ['LLM', 'Evaluation'],
+    {
+      title: 'Đừng tin điểm eval của chính mình',
+      content:
+        'Bộ eval tự viết cho con chatbot nội bộ đạt 91%. Đem 50 câu hỏi thật của người dùng vào thì còn 62%. Bài học: tập eval phải lấy từ log thật, không phải từ trí tưởng tượng của người xây hệ thống.',
+    },
+    12,
+  ),
+  careerPost(
+    'minh.engineer',
+    'text',
+    'du-lieu-ai-ml',
+    ['Data', 'Pipeline'],
+    {
+      content:
+        'Pipeline ETL chạy 6 tiếng mỗi đêm, soi ra 70% thời gian nằm ở một bước join không có index. Thêm index xong còn 50 phút. Chốt lại: đo trước, tối ưu sau — mình suýt đi viết lại bằng Spark.',
+    },
+    52,
+  ),
+  careerPost(
+    'peter.devops',
+    'text',
+    'devops-ha-tang',
+    ['DevOps', 'Kubernetes'],
+    {
+      content:
+        'Đặt lại resource request/limit cho 23 service theo số liệu thật 30 ngày thay vì con số copy từ template. Hoá đơn cluster giảm 34%, không service nào bị OOM. Việc nhàm chán nhưng hiệu quả nhất quý này.',
+    },
+    9,
+  ),
+  careerPost(
+    'peter.devops',
+    'tutorial',
+    'devops-ha-tang',
+    ['DevOps', 'CI/CD'],
+    {
+      title: 'Rút CI từ 14 phút xuống 4 phút',
+      description:
+        'Ba việc: cache layer Docker theo lockfile, chạy song song test theo shard, và bỏ bước lint trùng lặp đã có trong pre-commit. Không đổi runner, không tốn thêm tiền.',
+      steps: 3,
+    },
+    74,
+  ),
+  careerPost(
+    'linh.dev',
+    'text',
+    'kiem-thu-bao-mat',
+    ['Security', 'AppSec'],
+    {
+      content:
+        'Pentest nội bộ tìm ra endpoint export CSV không kiểm tra quyền — ai có link là tải được dữ liệu phòng ban khác. Nằm im 8 tháng. Từ giờ mọi endpoint mới bắt buộc có test case "user không có quyền".',
+    },
+    18,
+  ),
+  careerPost(
+    'lucas.dev',
+    'note',
+    'kiem-thu-bao-mat',
+    ['Testing', 'E2E'],
+    {
+      title: 'Test E2E hay đỏ vặt: 90% là do chờ sai',
+      content:
+        'Thay toàn bộ sleep cố định bằng chờ theo điều kiện hiển thị. Tỉ lệ test đỏ oan từ 12% xuống 0.8% trong 2 tuần. Không viết thêm test nào mới cả.',
+    },
+    45,
+  ),
+  careerPost(
+    'jane.design',
+    'text',
+    'quan-ly-san-pham',
+    ['Product', 'Discovery'],
+    {
+      content:
+        'Ngồi xem 8 người dùng thật thao tác trong 2 ngày, gạch được 3 tính năng khỏi roadmap quý. Chi phí: 2 ngày. Tiết kiệm: khoảng 6 tuần công của cả team.',
+    },
+    31,
+  ),
+  careerPost(
+    'jane.design',
+    'question',
+    'quan-ly-san-pham',
+    ['Product', 'Metrics'],
+    {
+      title: 'Đo "sản phẩm có hữu ích không" bằng chỉ số nào là hợp lý?',
+      content:
+        'DAU/MAU đang đẹp nhưng phỏng vấn người dùng thì họ nói dùng vì bắt buộc. Team mọi người dùng chỉ số nào để bắt được khoảng lệch này?',
+      tags: ['product', 'analytics'],
+    },
+    88,
+  ),
+
+  // === Thiết kế & Sáng tạo ===
+  careerPost(
+    'jane.design',
+    'text',
+    'ui-ux',
+    ['UX', 'Research'],
+    {
+      content:
+        'Đổi nhãn nút từ "Gửi" thành "Gửi yêu cầu hỗ trợ", tỉ lệ hoàn thành form tăng 19%. Không đổi một dòng layout nào. Đôi khi vấn đề không nằm ở giao diện mà ở chỗ người ta không biết bấm xong sẽ ra gì.',
+    },
+    7,
+  ),
+  careerPost(
+    'jane.design',
+    'image',
+    'ui-ux',
+    ['UI', 'Design System'],
+    {
+      content:
+        'Dọn lại bảng màu: từ 47 biến màu rải rác trong Figma xuống 12 token có tên theo ngữ nghĩa. Ảnh trước/sau khi map lại toàn bộ component.',
+      image: {
+        url: 'https://picsum.photos/seed/career-ui-ux-tokens/1280/670',
+        alt: 'Bảng màu trước và sau khi gom về design token',
+      },
+    },
+    36,
+  ),
+  careerPost(
+    'khoa.content',
+    'text',
+    'do-hoa-thuong-hieu',
+    ['Branding', 'Identity'],
+    {
+      content:
+        'Làm bộ nhận diện cho một tiệm bánh nhỏ. Chủ tiệm không cần logo đẹp, họ cần cái biển hiệu đọc được từ bên kia đường lúc 7 giờ tối. Ràng buộc đó quyết định toàn bộ thiết kế.',
+    },
+    22,
+  ),
+  careerPost(
+    'khoa.content',
+    'gallery',
+    'do-hoa-thuong-hieu',
+    ['Branding', 'Packaging'],
+    {
+      content:
+        '3 phương án bao bì trà thảo mộc, chọn phương án giữa vì in lụa 2 màu rẻ hơn 40%.',
+      images: [
+        {
+          url: 'https://picsum.photos/seed/career-brand-pack-1/1280/670',
+          alt: 'Phương án bao bì 1',
+        },
+        {
+          url: 'https://picsum.photos/seed/career-brand-pack-2/1280/670',
+          alt: 'Phương án bao bì 2',
+        },
+        {
+          url: 'https://picsum.photos/seed/career-brand-pack-3/1280/670',
+          alt: 'Phương án bao bì 3',
+        },
+      ],
+    },
+    64,
+  ),
+  careerPost(
+    'khoa.content',
+    'video',
+    'san-xuat-noi-dung-video',
+    ['Video', 'Editing'],
+    {
+      content:
+        'Dựng lại video giới thiệu sản phẩm: cắt 20 giây đầu, vào thẳng vấn đề người xem quan tâm. Tỉ lệ xem hết tăng từ 31% lên 58%.',
+      video: {
+        thumbnailUrl: 'https://picsum.photos/seed/career-video-edit/1280/670',
+        duration: '4:12',
+      },
+    },
+    15,
+  ),
+  careerPost(
+    'khoa.content',
+    'note',
+    'san-xuat-noi-dung-video',
+    ['Video', 'Workflow'],
+    {
+      title: 'Quy trình dựng video một mình cho kênh nội bộ',
+      content:
+        'Quay 1 lần, cắt thô bằng transcript trước khi mở phần mềm dựng. Đọc chữ nhanh hơn tua video rất nhiều — thời gian hậu kỳ giảm còn một nửa.',
+    },
+    97,
+  ),
+  careerPost(
+    'khoa.content',
+    'text',
+    'viet-bien-tap',
+    ['Writing', 'Editing'],
+    {
+      content:
+        'Biên tập bài kỹ thuật cho người không làm kỹ thuật đọc: quy tắc của mình là mỗi đoạn chỉ một ý, và bất kỳ từ viết tắt nào cũng phải được giải thích ngay lần đầu xuất hiện. Nghe đơn giản nhưng làm được thì bài dễ đọc hẳn.',
+    },
+    41,
+  ),
+  careerPost(
+    'khoa.content',
+    'question',
+    'viet-bien-tap',
+    ['Writing', 'Process'],
+    {
+      title: 'Mọi người viết bản nháp đầu tiên trong bao lâu?',
+      content:
+        'Mình hay sa vào sửa câu chữ ngay khi vừa viết xong đoạn đầu, kết quả là 3 tiếng chưa xong bài. Có ai có mẹo tách hẳn giai đoạn viết và giai đoạn sửa không?',
+      tags: ['writing', 'productivity'],
+    },
+    110,
+  ),
+
+  // === Marketing & Truyền thông ===
+  careerPost(
+    'thao.marketing',
+    'text',
+    'digital-marketing',
+    ['Marketing', 'Performance'],
+    {
+      content:
+        'Tắt 6 nhóm quảng cáo tiêu 60% ngân sách nhưng chỉ mang về 9% đơn hàng. Dồn tiền vào 2 nhóm tốt nhất. Doanh thu tháng không đổi, chi phí giảm 41%. Đôi khi tối ưu là bớt đi chứ không phải thêm vào.',
+    },
+    4,
+  ),
+  careerPost(
+    'thao.marketing',
+    'note',
+    'digital-marketing',
+    ['Marketing', 'Attribution'],
+    {
+      title: 'Last-click đang nói dối bạn',
+      content:
+        'Chuyển sang mô hình data-driven, kênh nội dung từ chỗ "không đóng góp gì" thành kênh chạm đầu tiên của 38% đơn hàng. Suýt nữa thì cắt cả team content.',
+    },
+    29,
+  ),
+  careerPost(
+    'thao.marketing',
+    'text',
+    'seo-content',
+    ['SEO', 'Content'],
+    {
+      content:
+        'Gộp 14 bài viết mỏng cùng chủ đề thành 3 bài đầy đủ, redirect 301 phần còn lại. Sau 6 tuần: traffic tự nhiên tăng 2.3 lần, thứ hạng từ khoá chính từ trang 3 lên top 5.',
+    },
+    19,
+  ),
+  careerPost(
+    'thao.marketing',
+    'resource',
+    'seo-content',
+    ['SEO', 'Technical'],
+    {
+      content:
+        'Bản rút gọn 22 mục mình dùng nội bộ, đã cắt bớt những mục không còn ảnh hưởng từ 2024.',
+      resource: {
+        title: 'Checklist SEO kỹ thuật trước khi lên trang mới',
+        kindLabel: 'Tài liệu · 22 mục',
+        rating: 4.7,
+      },
+    },
+    58,
+  ),
+  careerPost(
+    'thao.marketing',
+    'text',
+    'social-media',
+    ['Social', 'Community'],
+    {
+      content:
+        'Trả lời hết bình luận trong 2 giờ đầu sau khi đăng, đều đặn 1 tháng. Lượt tiếp cận tự nhiên tăng 60%. Không có thủ thuật nào cả, chỉ là có mặt đúng lúc người ta đang nói chuyện.',
+    },
+    33,
+  ),
+  careerPost(
+    'thao.marketing',
+    'idea',
+    'social-media',
+    ['Social', 'Format'],
+    {
+      content:
+        'Thử format "một ngày làm việc" quay bằng điện thoại, không kịch bản. Ba video đầu tiếp cận gấp 4 lần video dựng công phu. Người xem muốn thấy người thật hơn là thấy quảng cáo đẹp.',
+    },
+    86,
+  ),
+  careerPost(
+    'thao.marketing',
+    'text',
+    'quan-he-cong-chung',
+    ['PR', 'Crisis'],
+    {
+      content:
+        'Sự cố hệ thống 4 tiếng hôm thứ Ba. Bài học lớn nhất không phải kỹ thuật: đăng thông báo trung thực sau 20 phút thay vì im lặng chờ khắc phục xong. Số lượt huỷ dịch vụ gần như bằng không.',
+    },
+    50,
+  ),
+  careerPost(
+    'thao.marketing',
+    'note',
+    'quan-he-cong-chung',
+    ['PR', 'Media'],
+    {
+      title: 'Gửi thông cáo báo chí mà không ai đăng',
+      content:
+        'Nhìn lại 12 lần gửi: 10 lần viết về việc công ty muốn nói, 2 lần viết về việc độc giả của toà soạn đó quan tâm. Đúng 2 lần đó được đăng.',
+    },
+    121,
+  ),
+
+  // === Kinh doanh & Vận hành ===
+  careerPost(
+    'hung.finance',
+    'text',
+    'ban-hang',
+    ['Sales', 'B2B'],
+    {
+      content:
+        'Bỏ kịch bản gọi điện dài 2 trang, thay bằng 3 câu hỏi mở về vấn đề khách đang gặp. Tỉ lệ đặt được lịch hẹn từ 8% lên 21%. Khách không muốn nghe mình giới thiệu, họ muốn được hỏi đúng chỗ đau.',
+    },
+    11,
+  ),
+  careerPost(
+    'hung.finance',
+    'question',
+    'ban-hang',
+    ['Sales', 'Pipeline'],
+    {
+      title: 'Deal nằm im 3 tháng thì nên theo tiếp hay bỏ?',
+      content:
+        'Có 6 deal ở giai đoạn thương thảo, khách vẫn trả lời nhưng không tiến. Mọi người đặt mốc bao lâu thì chuyển sang trạng thái đóng - thua để tập trung chỗ khác?',
+      tags: ['sales', 'crm'],
+    },
+    72,
+  ),
+  careerPost(
+    'minh.engineer',
+    'project-update',
+    'quan-ly-du-an',
+    ['Project', 'Delivery'],
+    {
+      project: 'Di chuyển hệ thống thanh toán',
+      version: 'Tuần 6/10',
+      changes: [
+        'Cắt phạm vi 2 hạng mục phụ để giữ đúng hạn cho phần lõi',
+        'Chốt phương án chạy song song 2 hệ thống trong 3 tuần đầu',
+        'Ghi lại quyết định để 3 tháng nữa nhìn lại xem đúng hay sai',
+      ],
+    },
+    24,
+  ),
+  careerPost(
+    'minh.engineer',
+    'note',
+    'quan-ly-du-an',
+    ['Project', 'Estimation'],
+    {
+      title: 'Ước lượng sai 2 lần liên tiếp thì đừng ước lượng lần 3',
+      content:
+        'Chuyển sang chia nhỏ tới mức mỗi việc dưới 1 ngày. Không chính xác hơn về tổng thời gian, nhưng phát hiện trượt tiến độ sớm hơn 2 tuần.',
+    },
+    104,
+  ),
+  careerPost(
+    'mai.hr',
+    'text',
+    'van-hanh-quy-trinh',
+    ['Operations', 'Process'],
+    {
+      content:
+        'Vẽ lại quy trình duyệt chi tiêu: 7 bước, 4 người ký. Hỏi từng người "nếu bỏ chữ ký của anh/chị thì rủi ro gì" — 2 người không trả lời được. Còn 5 bước, 2 chữ ký, thời gian duyệt từ 6 ngày xuống 1 ngày.',
+    },
+    16,
+  ),
+  careerPost(
+    'mai.hr',
+    'text',
+    'van-hanh-quy-trinh',
+    ['Operations', 'Automation'],
+    {
+      content:
+        'Tự động hoá việc tổng hợp báo cáo tuần bằng một bảng tính có kết nối dữ liệu. Tiết kiệm 3 giờ mỗi tuần cho 4 người. Không cần phần mềm mới, không cần xin ngân sách.',
+    },
+    93,
+  ),
+  careerPost(
+    'hung.finance',
+    'text',
+    'chien-luoc',
+    ['Strategy', 'Planning'],
+    {
+      content:
+        'Kế hoạch năm ban đầu có 14 mục tiêu. Ép xuống 3. Cái khó không phải chọn cái nào giữ, mà là giải thích cho 11 người chủ trì các mục tiêu còn lại vì sao việc của họ bị hoãn.',
+    },
+    38,
+  ),
+  careerPost(
+    'hung.finance',
+    'note',
+    'chien-luoc',
+    ['Strategy', 'Competition'],
+    {
+      title: 'Phân tích đối thủ mà không bị ám ảnh bởi đối thủ',
+      content:
+        'Trước đây mỗi lần đối thủ ra tính năng mới là team lại đổi kế hoạch. Giờ đặt quy tắc: chỉ phản ứng nếu tính năng đó giải quyết vấn đề mà khách của mình cũng đang kêu.',
+    },
+    130,
+  ),
+
+  // === Tài chính & Đầu tư ===
+  careerPost(
+    'hung.finance',
+    'text',
+    'ke-toan',
+    ['Kế toán', 'Đóng sổ'],
+    {
+      content:
+        'Rút thời gian đóng sổ cuối tháng từ 9 ngày xuống 4 ngày. Cách làm: đối chiếu ngân hàng hằng tuần thay vì dồn cuối tháng, và chốt danh mục hạch toán để không phải hỏi lại từng khoản.',
+    },
+    6,
+  ),
+  careerPost(
+    'hung.finance',
+    'note',
+    'ke-toan',
+    ['Kế toán', 'Thuế'],
+    {
+      title: 'Ba lỗi hoá đơn đầu vào hay bị loại nhất',
+      content:
+        'Sai mã số thuế, thiếu chữ ký số hợp lệ, và nội dung hàng hoá ghi chung chung không khớp hợp đồng. Ba lỗi này chiếm gần hết số hoá đơn bị loại khi quyết toán năm ngoái.',
+    },
+    47,
+  ),
+  careerPost(
+    'hung.finance',
+    'text',
+    'phan-tich-tai-chinh',
+    ['Tài chính', 'Dòng tiền'],
+    {
+      content:
+        'Công ty lãi trên báo cáo nhưng suýt hết tiền mặt tháng 3. Nguyên nhân: kỳ thu tiền bình quân 74 ngày trong khi phải trả nhà cung cấp trong 30 ngày. Lãi và tiền là hai chuyện khác nhau.',
+    },
+    21,
+  ),
+  careerPost(
+    'hung.finance',
+    'text',
+    'phan-tich-tai-chinh',
+    ['Tài chính', 'Mô hình'],
+    {
+      content:
+        'Xây mô hình dự báo 3 kịch bản thay vì 1 con số duy nhất. Ban giám đốc hỏi ít hơn hẳn, vì câu hỏi "nếu tệ hơn thì sao" đã có sẵn câu trả lời trong bảng.',
+    },
+    79,
+  ),
+  careerPost(
+    'hung.finance',
+    'text',
+    'dau-tu-thi-truong',
+    ['Đầu tư', 'Danh mục'],
+    {
+      content:
+        'Nhìn lại 3 năm đầu tư cá nhân: phần lợi nhuận gần như đến từ việc không bán lúc thị trường giảm, chứ không phải từ việc chọn đúng mã. Ghi lại để lần sau đỡ ngứa tay.',
+    },
+    43,
+  ),
+  careerPost(
+    'hung.finance',
+    'question',
+    'dau-tu-thi-truong',
+    ['Đầu tư', 'Rủi ro'],
+    {
+      title: 'Người đi làm công nên để bao nhiêu phần trăm vào tài sản rủi ro?',
+      content:
+        'Thu nhập ổn định, quỹ dự phòng đã đủ 6 tháng chi tiêu. Mọi người phân bổ thế nào giữa gửi tiết kiệm, quỹ mở và cổ phiếu?',
+      tags: ['đầu tư', 'tài chính cá nhân'],
+    },
+    136,
+  ),
+
+  // === Nhân sự & Lãnh đạo ===
+  careerPost(
+    'mai.hr',
+    'text',
+    'tuyen-dung-hr',
+    ['Tuyển dụng', 'Phỏng vấn'],
+    {
+      content:
+        'Bỏ vòng hỏi đố thuật toán, thay bằng buổi 90 phút cùng sửa một lỗi có thật trong codebase mẫu. Tỉ lệ ứng viên nhận offer tăng, và quan trọng hơn: không còn ai nghỉ trong 3 tháng đầu vì "công việc khác với lúc phỏng vấn".',
+    },
+    8,
+  ),
+  careerPost(
+    'mai.hr',
+    'note',
+    'tuyen-dung-hr',
+    ['Tuyển dụng', 'Tin tuyển dụng'],
+    {
+      title: 'Viết lại tin tuyển dụng, số hồ sơ phù hợp tăng gấp đôi',
+      content:
+        'Bỏ đoạn "môi trường trẻ trung năng động", thay bằng mô tả cụ thể 3 việc sẽ làm trong 90 ngày đầu và mức lương thật. Ít hồ sơ hơn 30% nhưng số hồ sơ đạt vòng đầu tăng gấp đôi.',
+    },
+    55,
+  ),
+  careerPost(
+    'mai.hr',
+    'text',
+    'ky-nang-lanh-dao',
+    ['Lãnh đạo', 'Phản hồi'],
+    {
+      content:
+        'Lần đầu phải góp ý nghiêm khắc với một bạn giỏi hơn mình về chuyên môn. Cách làm được: nói về ảnh hưởng cụ thể tới người khác, không nói về tính cách. Buổi nói chuyện 15 phút, không ai phải phòng thủ.',
+    },
+    26,
+  ),
+  careerPost(
+    'minh.engineer',
+    'milestone',
+    'ky-nang-lanh-dao',
+    ['Lãnh đạo', 'Chuyển vai'],
+    {
+      title: '6 tháng đầu làm tech lead',
+      items: [
+        { label: 'Người trong nhóm', value: '7' },
+        { label: 'Giờ code mỗi tuần', value: '6' },
+        { label: '1:1 đã làm', value: '84' },
+      ],
+    },
+    68,
+  ),
+  careerPost(
+    'mai.hr',
+    'text',
+    'dao-tao-noi-bo',
+    ['Đào tạo', 'Onboarding'],
+    {
+      content:
+        'Viết lại tài liệu nhập môn theo kiểu "ngày 1 làm gì, tuần 1 làm gì" thay vì một trang danh sách công cụ. Thời gian để người mới hoàn thành task đầu tiên giảm từ 9 ngày xuống 3 ngày.',
+    },
+    35,
+  ),
+  careerPost(
+    'mai.hr',
+    'resource',
+    'dao-tao-noi-bo',
+    ['Đào tạo', 'Chia sẻ'],
+    {
+      content:
+        'Duy trì được 14 tuần liên tục ở công ty mình, người trình bày không phải chuẩn bị quá 2 giờ.',
+      resource: {
+        title: 'Mẫu tổ chức buổi chia sẻ nội bộ 30 phút',
+        kindLabel: 'Mẫu slide · 8 trang',
+        rating: 4.5,
+      },
+    },
+    115,
+  ),
+
+  // === Kỹ năng nền tảng ===
+  careerPost(
+    'linh.dev',
+    'text',
+    'ngoai-ngu',
+    ['Ngoại ngữ', 'Tiếng Anh'],
+    {
+      content:
+        'Đổi cách học tiếng Anh: thay vì luyện đề, mỗi ngày viết 5 câu tóm tắt việc đã làm rồi nhờ đồng nghiệp nước ngoài sửa. Sau 2 tháng, họp bằng tiếng Anh không còn phải chuẩn bị trước từng câu.',
+    },
+    13,
+  ),
+  careerPost(
+    'khoa.content',
+    'note',
+    'ngoai-ngu',
+    ['Ngoại ngữ', 'Phương pháp'],
+    {
+      title: 'Nghe hiểu không lên vì nghe sai loại nội dung',
+      content:
+        'Nghe podcast học thuật 6 tháng vẫn không hiểu đồng nghiệp nói chuyện. Chuyển sang nghe họp nội bộ đã ghi âm — cùng chủ đề, cùng từ vựng, cùng tốc độ. Ba tuần thấy khác hẳn.',
+    },
+    62,
+  ),
+  careerPost(
+    'mai.hr',
+    'text',
+    'giao-tiep-thuyet-trinh',
+    ['Giao tiếp', 'Thuyết trình'],
+    {
+      content:
+        'Bỏ 30 slide, còn 6. Mỗi slide một câu kết luận thay vì một cái tiêu đề. Buổi báo cáo 45 phút xong trong 20 phút và ban giám đốc quyết được ngay trong buổi.',
+    },
+    17,
+  ),
+  careerPost(
+    'jane.design',
+    'text',
+    'giao-tiep-thuyet-trinh',
+    ['Giao tiếp', 'Bảo vệ ý tưởng'],
+    {
+      content:
+        'Trình bày phương án thiết kế mà bị phản đối, trước đây mình sẽ giải thích thêm. Giờ mình hỏi lại "anh/chị đang lo điều gì sẽ xảy ra". 8/10 lần hoá ra hai bên đang nói về hai vấn đề khác nhau.',
+    },
+    82,
+  ),
+  careerPost(
+    'lucas.dev',
+    'text',
+    'tu-duy-phan-bien',
+    ['Tư duy', 'Ra quyết định'],
+    {
+      content:
+        'Trước mỗi quyết định kỹ thuật lớn, team viết ra "điều gì phải đúng thì lựa chọn này mới hợp lý". Ba tháng sau đọc lại, thấy rõ quyết định nào sai vì giả định sai chứ không phải vì thực thi kém.',
+    },
+    39,
+  ),
+  careerPost(
+    'linh.dev',
+    'note',
+    'tu-duy-phan-bien',
+    ['Tư duy', 'Thiên kiến'],
+    {
+      title: 'Mình đã tin một con số suốt 4 tháng mà không kiểm tra',
+      content:
+        'Báo cáo nói tính năng X được 40% người dùng dùng. Hoá ra cách đếm tính cả lần render component chứ không phải lần người dùng bấm. Từ đó bất kỳ con số nào dùng để ra quyết định, mình đều hỏi "đếm thế nào".',
+    },
+    142,
+  ),
+
+  // === Không gắn ngành nghề -> mục "Chia sẻ chung" ===
+  {
+    author: 'tuananh.fe',
+    kind: 'text',
+    data: {
+      topic: topic('Career', 'Hành trình'),
+      content:
+        'Ba năm trước mình còn không biết Git là gì. Hôm nay ngồi review pull request cho người khác. Không có bước nhảy nào cả, chỉ là mỗi tuần biết thêm một thứ nhỏ và không bỏ cuộc giữa chừng.',
+    },
+    at: hoursAgo(3),
+  },
+  {
+    author: 'linh.dev',
+    kind: 'text',
+    data: {
+      topic: topic('Career', 'Nghỉ ngơi'),
+      content:
+        'Nghỉ phép 5 ngày không mở laptop. Quay lại sửa được trong 40 phút cái bug đã ngồi 2 ngày trước khi nghỉ. Nghỉ ngơi không phải phần thưởng sau khi làm xong việc, nó là một phần của việc.',
+    },
+    at: hoursAgo(30),
+  },
+  {
+    author: 'khoa.content',
+    kind: 'idea',
+    data: {
+      topic: topic('Career', 'Thói quen'),
+      content:
+        'Ghi lại mỗi ngày một dòng "hôm nay học được gì". Sau một năm đọc lại thì thấy có những thứ mình tưởng mới học tuần trước, thực ra đã học rồi và quên mất.',
+    },
+    at: hoursAgo(57),
+  },
+  {
+    author: 'mai.hr',
+    kind: 'text',
+    data: {
+      topic: topic('Career', 'Chuyển việc'),
+      content:
+        'Từ chối một lời mời lương cao hơn 30%. Lý do: hỏi 4 người từng làm ở đó, cả 4 đều ngập ngừng khi nói về quản lý trực tiếp. Lương bù được nhiều thứ nhưng không bù được chỗ đó.',
+    },
+    at: hoursAgo(91),
+  },
+  {
+    author: 'hung.finance',
+    kind: 'question',
+    data: {
+      topic: topic('Career', 'Cân bằng'),
+      title: 'Mọi người tách công việc và cuộc sống bằng cách nào khi làm từ xa?',
+      content:
+        'Làm ở nhà 2 năm, dạo này hay mở máy lúc 10 giờ tối vì "xem qua một chút". Có ai có ranh giới nào thực sự hiệu quả không?',
+      tags: ['remote', 'cân bằng'],
+    },
+    at: hoursAgo(120),
+  },
+  {
+    author: 'peter.devops',
+    kind: 'text',
+    data: {
+      topic: topic('Career', 'Sai lầm'),
+      content:
+        'Xoá nhầm một bảng trên môi trường thật năm 2023. Khôi phục mất 4 tiếng. Điều duy nhất cứu mình là bản sao lưu tự động mà chính mình đã lười thiết lập suốt 3 tháng trước đó và cuối cùng vẫn làm.',
+    },
+    at: hoursAgo(150),
+  },
+];
+
+// ---------- chu de & cuoc thi (hashtag) ----------
+// CONTEST = co giai thuong/han chot; TOPIC = chu de viet bai thuong truc.
+// `careerSlugs` khong luu vao DB - chi dung luc seed de chon bai nao gan vao
+// contest nao cho hop chu de (va de GET /contests/:slug/related tra ve bai
+// cung nganh cho co nghia).
+type ContestSeed = {
+  slug: string;
+  hashtag: string;
+  title: string;
+  description: string;
+  kind: 'CONTEST' | 'TOPIC';
+  status: 'OPEN' | 'JUDGING' | 'CLOSED';
+  partnerName?: string;
+  accent: string;
+  prize?: string;
+  deadlineInDays?: number;
+  careerSlugs: string[];
+  postLimit: number;
+};
+
+const CONTESTS: ContestSeed[] = [
+  {
+    slug: 'cuoc-thi-system-design-2026',
+    hashtag: 'CuộcThiSystemDesign2026',
+    title: 'Cuộc thi System Design 2026',
+    description:
+      'Chia sẻ một bài toán thiết kế hệ thống bạn từng giải quyết trong công việc thật: bối cảnh, các phương án đã cân nhắc, và vì sao bạn chọn phương án cuối. Bài dự thi được ban giám khảo gồm kiến trúc sư từ 6 công ty chấm điểm.',
+    kind: 'CONTEST',
+    status: 'OPEN',
+    partnerName: 'Viettel Digital',
+    accent: '#0ea5e9',
+    prize: 'Giải nhất 50.000.000đ · 3 giải nhì mỗi giải 15.000.000đ',
+    deadlineInDays: 24,
+    careerSlugs: ['lap-trinh-web-mobile', 'devops-ha-tang'],
+    postLimit: 12,
+  },
+  {
+    slug: 'ai-thay-doi-cong-viec-toi',
+    hashtag: 'AIThayĐổiCôngViệcTôi',
+    title: 'AI đã thay đổi công việc của tôi thế nào',
+    description:
+      'Không cần bạn là kỹ sư AI. Kể về một việc cụ thể trong ngày làm việc của bạn đã khác đi từ khi có công cụ AI — kể cả khi kết quả là bạn quyết định không dùng nữa.',
+    kind: 'CONTEST',
+    status: 'JUDGING',
+    partnerName: 'FPT Software',
+    accent: '#ec4899',
+    prize: 'Giải nhất 30.000.000đ · 10 giải khuyến khích',
+    deadlineInDays: -3,
+    careerSlugs: ['du-lieu-ai-ml', 'quan-ly-san-pham'],
+    postLimit: 10,
+  },
+  {
+    slug: 'ngay-dau-di-lam',
+    hashtag: 'NgàyĐầuĐiLàm',
+    title: 'Ngày đầu đi làm',
+    description:
+      'Ngày đầu tiên ở công ty đầu tiên của bạn diễn ra thế nào? Bạn đã lo lắng điều gì, và điều đó có thật sự xảy ra không? Chủ đề dành cho tất cả mọi ngành nghề.',
+    kind: 'TOPIC',
+    status: 'OPEN',
+    accent: '#f59e0b',
+    careerSlugs: [],
+    postLimit: 8,
+  },
+  {
+    slug: 'viet-ve-bug-nho-doi',
+    hashtag: 'ViếtVềBugNhớĐời',
+    title: 'Viết về một con bug nhớ đời',
+    description:
+      'Con bug tốn của bạn nhiều thời gian nhất, hoặc dạy bạn nhiều nhất. Càng cụ thể về cách bạn lần ra nguyên nhân càng tốt — phần đó mới là thứ người khác học được.',
+    kind: 'TOPIC',
+    status: 'OPEN',
+    accent: '#f43f5e',
+    careerSlugs: ['lap-trinh-web-mobile', 'kiem-thu-bao-mat'],
+    postLimit: 10,
+  },
+  {
+    slug: 'portfolio-cua-toi',
+    hashtag: 'PortfolioCủaTôi',
+    title: 'Portfolio của tôi',
+    description:
+      'Giới thiệu một sản phẩm trong portfolio của bạn kèm phần khó nhất khi làm nó. Ban giám khảo đánh giá cách bạn kể về quá trình, không chỉ ảnh chụp kết quả.',
+    kind: 'CONTEST',
+    status: 'OPEN',
+    partnerName: 'Behance Việt Nam',
+    accent: '#8b5cf6',
+    prize: 'Giải nhất gói thiết bị trị giá 25.000.000đ',
+    deadlineInDays: 16,
+    careerSlugs: ['ui-ux', 'do-hoa-thuong-hieu', 'san-xuat-noi-dung-video'],
+    postLimit: 9,
+  },
+  {
+    slug: 'tai-chinh-ca-nhan-tuoi-30',
+    hashtag: 'TàiChínhCáNhânTuổi30',
+    title: 'Tài chính cá nhân tuổi 30',
+    description:
+      'Bạn đã sắp xếp tiền bạc thế nào ở tuổi 30? Quỹ dự phòng, khoản đầu tư đầu tiên, hay một quyết định tài chính bạn ước mình làm sớm hơn. Bài viết trung thực về con số được ưu tiên.',
+    kind: 'CONTEST',
+    status: 'JUDGING',
+    partnerName: 'Techcombank',
+    accent: '#10b981',
+    prize: 'Giải nhất 20.000.000đ · 5 giải phụ mỗi giải 3.000.000đ',
+    deadlineInDays: -8,
+    careerSlugs: ['dau-tu-thi-truong', 'phan-tich-tai-chinh', 'ke-toan'],
+    postLimit: 8,
+  },
+  {
+    slug: 'hoc-ngoai-ngu-moi-ngay',
+    hashtag: 'HọcNgoạiNgữMỗiNgày',
+    title: 'Học ngoại ngữ mỗi ngày',
+    description:
+      'Cách bạn duy trì việc học ngoại ngữ khi đi làm bận rộn. Chia sẻ phương pháp thật đã dùng được ít nhất một tháng, kể cả phương pháp thất bại.',
+    kind: 'TOPIC',
+    status: 'OPEN',
+    accent: '#22d3ee',
+    careerSlugs: ['ngoai-ngu', 'giao-tiep-thuyet-trinh'],
+    postLimit: 6,
+  },
+  {
+    slug: 'lan-dau-lam-lead',
+    hashtag: 'LầnĐầuLàmLead',
+    title: 'Lần đầu làm lead',
+    description:
+      'Chuyển từ người làm chuyên môn sang người dẫn dắt là một cú sốc ít ai nói trước. Kể về giai đoạn đầu của bạn: điều gì khó hơn tưởng tượng, điều gì dễ hơn?',
+    kind: 'TOPIC',
+    status: 'JUDGING',
+    accent: '#6366f1',
+    careerSlugs: ['ky-nang-lanh-dao', 'quan-ly-du-an', 'dao-tao-noi-bo'],
+    postLimit: 7,
+  },
+  {
+    slug: 'chuyen-nganh-sang-it',
+    hashtag: 'ChuyểnNgànhSangIT',
+    title: 'Chuyển ngành sang IT',
+    description:
+      'Dành cho những người bắt đầu từ một ngành khác. Bạn đã học lại từ đâu, mất bao lâu để có công việc đầu tiên, và điều gì từ ngành cũ hoá ra lại là lợi thế?',
+    kind: 'CONTEST',
+    status: 'CLOSED',
+    partnerName: 'TopCV',
+    accent: '#a855f7',
+    prize: 'Đã trao 12 giải · Tổng giá trị 80.000.000đ',
+    deadlineInDays: -45,
+    careerSlugs: ['lap-trinh-web-mobile', 'tuyen-dung-hr'],
+    postLimit: 9,
+  },
+  {
+    slug: 'review-cong-cu-lam-viec',
+    hashtag: 'ReviewCôngCụLàmViệc',
+    title: 'Review công cụ làm việc',
+    description:
+      'Một công cụ bạn dùng hằng ngày: nó giải quyết việc gì, giá bao nhiêu, và điểm nào khiến bạn suýt bỏ. Không nhận bài quảng cáo.',
+    kind: 'TOPIC',
+    status: 'OPEN',
+    accent: '#38bdf8',
+    careerSlugs: ['van-hanh-quy-trinh', 'digital-marketing', 'devops-ha-tang'],
+    postLimit: 8,
+  },
+  {
+    slug: 'san-pham-dau-tay',
+    hashtag: 'SảnPhẩmĐầuTay',
+    title: 'Sản phẩm đầu tay',
+    description:
+      'Sản phẩm đầu tiên bạn tự làm và đưa ra cho người khác dùng. Bao nhiêu người dùng thật, bạn học được gì, và bây giờ nó còn sống không?',
+    kind: 'CONTEST',
+    status: 'CLOSED',
+    partnerName: 'Shopee Tech',
+    accent: '#fb7185',
+    prize: 'Đã trao 5 giải · Giải nhất 40.000.000đ',
+    deadlineInDays: -60,
+    careerSlugs: ['quan-ly-san-pham', 'lap-trinh-web-mobile', 'chien-luoc'],
+    postLimit: 7,
+  },
+  {
+    slug: 'mot-ngay-cua-toi',
+    hashtag: 'MộtNgàyCủaTôi',
+    title: 'Một ngày làm việc của tôi',
+    description:
+      'Mô tả một ngày làm việc bình thường của bạn theo giờ. Chủ đề này giúp người ngoài ngành hiểu công việc của bạn thật sự gồm những gì.',
+    kind: 'TOPIC',
+    status: 'OPEN',
+    accent: '#eab308',
+    careerSlugs: ['social-media', 'ban-hang', 'viet-bien-tap'],
+    postLimit: 8,
+  },
+];
+
 // ---------- seeding ----------
 
 async function main() {
@@ -1779,28 +2921,167 @@ async function main() {
   });
   console.log(`Cleared ${deleted.count} old seeded posts`);
 
-  const allPosts = [...POSTS, ...POSTS_BY_CATEGORY, ...POSTS_BY_NEW_TOPIC];
-  for (const post of allPosts) {
+  // --- Category nghe nghiep 2 tang: upsert theo slug (idempotent) ---
+  const careerSlugToId = new Map<string, string>();
+  for (const [groupIndex, group] of CAREER_TAXONOMY.entries()) {
+    const groupRow = await prisma.careerCategoryGroup.upsert({
+      where: { slug: group.slug },
+      update: { name: group.name, icon: group.icon, orderIndex: groupIndex },
+      create: {
+        slug: group.slug,
+        name: group.name,
+        icon: group.icon,
+        orderIndex: groupIndex,
+      },
+    });
+    for (const [catIndex, category] of group.categories.entries()) {
+      const categoryRow = await prisma.careerCategory.upsert({
+        where: { slug: category.slug },
+        update: {
+          name: category.name,
+          orderIndex: catIndex,
+          groupId: groupRow.id,
+        },
+        create: {
+          slug: category.slug,
+          name: category.name,
+          orderIndex: catIndex,
+          groupId: groupRow.id,
+        },
+      });
+      careerSlugToId.set(category.slug, categoryRow.id);
+    }
+  }
+  console.log(
+    `Career taxonomy: ${CAREER_TAXONOMY.length} groups / ${careerSlugToId.size} categories`,
+  );
+
+  const allPosts = [
+    ...POSTS,
+    ...POSTS_BY_CATEGORY,
+    ...POSTS_BY_NEW_TOPIC,
+    ...POSTS_BY_CAREER,
+  ];
+  // Giu lai id bai da tao de con noi vao contest o buoc sau, kem nganh nghe
+  // cua no de chon bai cho dung chu de tung contest.
+  const createdPosts: { id: string; careerCategoryId: string | null }[] = [];
+
+  for (const [index, post] of allPosts.entries()) {
     const authorId = usernameToId.get(post.author);
     if (!authorId) throw new Error(`Khong tim thay tac gia ${post.author}`);
-    await prisma.post.create({
+
+    // Nganh nghe: uu tien slug gan tay tren tung bai, khong co thi suy tu
+    // topic Knowledge World (`category`). Van khong ra thi de null - bai do
+    // thuoc muc "Chia se chung".
+    const careerSlug =
+      post.careerCategory ??
+      (post.category ? CAREER_BY_POST_CATEGORY[post.category] : undefined);
+    if (careerSlug && !careerSlugToId.has(careerSlug)) {
+      throw new Error(`Career category khong ton tai: ${careerSlug}`);
+    }
+    const careerCategoryId = careerSlug
+      ? (careerSlugToId.get(careerSlug) ?? null)
+      : null;
+
+    // Them coverImage cho moi kind CHUA co anh that san (xem
+    // NATIVE_IMAGE_KINDS) - lay topic.path lam seed picsum de anh lien quan
+    // (tuong doi) toi chu de bai dang thay vi hoan toan ngau nhien.
+    const topicData = (post.data as { topic?: { path?: string[] } }).topic;
+    const data = NATIVE_IMAGE_KINDS.has(post.kind)
+      ? post.data
+      : {
+          ...post.data,
+          coverImage: buildCoverImageSeed(topicData?.path, index),
+        };
+
+    const created = await prisma.post.create({
       data: {
         authorId,
         kind: toDbKind(post.kind),
         category: post.category,
-        data: post.data as Prisma.InputJsonValue,
+        careerCategoryId,
+        data: data as Prisma.InputJsonValue,
         likesCount: 3 + Math.floor(Math.random() * 340),
         commentsCount: Math.floor(Math.random() * 45),
         repostsCount: Math.floor(Math.random() * 20),
         createdAt: post.at,
         updatedAt: post.at,
       },
+      select: { id: true, careerCategoryId: true },
     });
+    createdPosts.push(created);
   }
 
   console.log(
     `Seeded ${allPosts.length} posts across ${PERSONAS.length + 1} authors.`,
   );
+
+  // --- Chu de & cuoc thi (hashtag) ---
+  // Upsert theo slug roi xoa het lien ket cu cua chinh contest do truoc khi
+  // noi lai - chay lai script khong nhan doi PostContest.
+  for (const contest of CONTESTS) {
+    const row = await prisma.contest.upsert({
+      where: { slug: contest.slug },
+      update: {
+        hashtag: contest.hashtag,
+        title: contest.title,
+        description: contest.description,
+        kind: contest.kind,
+        status: contest.status,
+        partnerName: contest.partnerName ?? null,
+        coverImageUrl: `https://picsum.photos/seed/contest-${contest.slug}/1600/500`,
+        accent: contest.accent,
+        prize: contest.prize ?? null,
+        deadline:
+          contest.deadlineInDays === undefined
+            ? null
+            : daysAgo(-contest.deadlineInDays),
+      },
+      create: {
+        slug: contest.slug,
+        hashtag: contest.hashtag,
+        title: contest.title,
+        description: contest.description,
+        kind: contest.kind,
+        status: contest.status,
+        partnerName: contest.partnerName ?? null,
+        coverImageUrl: `https://picsum.photos/seed/contest-${contest.slug}/1600/500`,
+        accent: contest.accent,
+        prize: contest.prize ?? null,
+        deadline:
+          contest.deadlineInDays === undefined
+            ? null
+            : daysAgo(-contest.deadlineInDays),
+      },
+    });
+
+    await prisma.postContest.deleteMany({ where: { contestId: row.id } });
+
+    // Chon bai cho dung chu de: uu tien bai thuoc cac nganh nghe cua contest,
+    // thieu thi bu bang bai bat ky (chu de chung nhu #NgàyĐầuĐiLàm khong gan
+    // nganh nao nen luon roi vao nhanh nay).
+    const targetIds = new Set(
+      contest.careerSlugs
+        .map((slug) => careerSlugToId.get(slug))
+        .filter((id): id is string => Boolean(id)),
+    );
+    const matched = createdPosts.filter(
+      (p) => p.careerCategoryId && targetIds.has(p.careerCategoryId),
+    );
+    const fallback = createdPosts.filter((p) => !matched.includes(p));
+    const picked = [...matched, ...fallback].slice(0, contest.postLimit);
+
+    await prisma.postContest.createMany({
+      data: picked.map((p) => ({ postId: p.id, contestId: row.id })),
+      skipDuplicates: true,
+    });
+    await prisma.contest.update({
+      where: { id: row.id },
+      data: { postCount: picked.length },
+    });
+  }
+
+  console.log(`Seeded ${CONTESTS.length} contests/topics with post links.`);
 }
 
 main()

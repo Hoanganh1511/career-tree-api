@@ -16,6 +16,8 @@ import { TierModule } from './tier/tier.module';
 import { CategoryModule } from './category/category.module';
 import { PostModule } from './post/post.module';
 import { FollowModule } from './follow/follow.module';
+import { FeedCategoryModule } from './feed-category/feed-category.module';
+import { ContestModule } from './contest/contest.module';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { FollowModule } from './follow/follow.module';
     CategoryModule,
     PostModule,
     FollowModule,
+    FeedCategoryModule,
+    ContestModule,
   ],
   controllers: [AppController],
   providers: [AppService],
