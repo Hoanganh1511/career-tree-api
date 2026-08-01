@@ -284,11 +284,17 @@ enum FollowStatus {
   PENDING
 }
 
-// "Linh vuc" cua bai dang (vd Frontend/Backend/Data-AI/...) - khop 1-1 voi
-// danh sach linhVuc trong enggo/src/lib/discover/category-taxonomy.ts (slug
-// kebab-case ben frontend -> UPPER_SNAKE_CASE o day, vd "data-ai" ->
-// DATA_AI). Day la TANG LOC DUOC (co index), khac "topic" (JSON tu do, chi
-// de hien thi breadcrumb, khong index duoc).
+// "Topic" cua bai dang (vd Frontend/Backend/LLM/...) - khop 1-1 voi danh sach
+// topic trong enggo/src/lib/discover/knowledge-worlds.ts (slug kebab-case ben
+// frontend -> UPPER_SNAKE_CASE o day, vd "ai-agents" -> AI_AGENTS). Day la
+// TANG LOC DUOC (co index), khac "topic" trong `data` JSON (tu do, chi de
+// hien thi breadcrumb, khong index duoc - ten trung nhau nhung 2 khai niem
+// khac nhau).
+//
+// GAME_DEV/IOT/DEV_TOOLS/DATA_AI/UI_UX/CAREER/SOFT_SKILLS/QA_TEST/SECURITY la
+// gia tri CU tu taxonomy nghe nghiep truoc day (category-taxonomy.ts, da xoa)
+// - GIU LAI vi da co bai seed gan gia tri nay, khong con duoc UI moi
+// (knowledge-worlds.ts) su dung de tao pill/topic nua.
 enum PostCategory {
   FRONTEND
   BACKEND
@@ -308,6 +314,34 @@ enum PostCategory {
   QA_TEST
   CAREER
   SOFT_SKILLS
+  // --- Them cho Knowledge World "Think" ---
+  ALGORITHMS
+  ARCHITECTURE
+  PERFORMANCE
+  DISTRIBUTED_SYSTEMS
+  // --- Them cho Knowledge World "AI" ---
+  PROMPT_ENGINEERING
+  LLM
+  AI_AGENTS
+  MCP
+  RAG
+  COMPUTER_VISION
+  // --- Them cho Knowledge World "Create" ---
+  UI
+  UX
+  MOTION
+  FIGMA
+  DESIGN_SYSTEM
+  // --- Them cho Knowledge World "Career" (topic con, khac CAREER cu o tren) ---
+  RESUME
+  INTERVIEW
+  PRODUCTIVITY
+  REMOTE
+  FREELANCE
+  // --- Them cho Knowledge World "Business" ---
+  STARTUP
+  GROWTH
+  MARKETING
 }
 
 model UserBlock {

@@ -13,12 +13,16 @@ export class PostController {
     @Query('limit') limit?: string,
     @Query('authorUsername') authorUsername?: string,
     @Query('category') category?: string,
+    // CSV kebab-case (vd "text,image,video") - Content Type ben frontend gom
+    // nhieu kind, xem CONTENT_TYPE_KINDS trong post-kind-meta.ts (enggo).
+    @Query('kind') kind?: string,
   ) {
     return this.postService.findAll({
       cursor,
       limit: limit ? Number(limit) : undefined,
       authorUsername,
       category,
+      kind: kind ? kind.split(',') : undefined,
     });
   }
 

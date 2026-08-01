@@ -59,12 +59,14 @@ export class PostService {
     limit?: number;
     authorUsername?: string;
     category?: string;
+    kind?: string[];
   }) {
-    const { cursor, limit = 30, authorUsername, category } = params;
+    const { cursor, limit = 30, authorUsername, category, kind } = params;
     const posts = await this.prisma.post.findMany({
       where: {
         ...(authorUsername ? { author: { username: authorUsername } } : {}),
         ...(category ? { category: category as PostCategory } : {}),
+        ...(kind?.length ? { kind: { in: kind.map(toDbKind) } } : {}),
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
