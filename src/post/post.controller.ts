@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { PostService } from './post.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { CurrentUserId } from '../auth/current-user.decorator';
@@ -39,6 +47,15 @@ export class PostController {
       careerCategory: careerCategory ? careerCategory.split(',') : undefined,
       careerGroup,
     });
+  }
+
+  // Dat SAU @Get() findAll - khong xung dot vi khac so segment URL
+  // (/posts vs /posts/:id), thu tu khai bao khong anh huong.
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    const post = await this.postService.findOne(id);
+    if (!post) throw new NotFoundException();
+    return post;
   }
 
   @Post()

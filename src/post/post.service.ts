@@ -101,6 +101,17 @@ export class PostService {
     return posts.map(toApiPost);
   }
 
+  // Dung cho trang chi tiet 1 bai viet (enggo: /p/[id]) - tra ve null (khong
+  // throw) khi khong tim thay, de controller tu quyet dinh ma HTTP status
+  // (404) thay vi service gia dinh san.
+  async findOne(id: string) {
+    const post = await this.prisma.post.findUnique({
+      where: { id },
+      include: { author: { select: authorSelect } },
+    });
+    return post ? toApiPost(post) : null;
+  }
+
   async create(userId: string, dto: CreatePostDto) {
     const post = await this.prisma.post.create({
       data: {
