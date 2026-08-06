@@ -238,6 +238,12 @@ model User {
   blocksMade        UserBlock[]  @relation("Blocker")
   blockedBy         UserBlock[]  @relation("Blocked")
   profile           UserProfile?
+
+  communitiesOwened    Community[]
+  communityMemberships CommunityMember[]
+  communityPosts       CommunityPost[]
+  comments             Comment[]
+  reactions            Reaction[]
 }
 
 model SystemFlag {
@@ -500,4 +506,142 @@ model UserProfile {
   pronouns      String?
   postCount     Int      @default(0)
   updatedAt     DateTime @updatedAt
+}
+
+model Community {
+  id          String            @id @default(uuid())
+  slug        String            @unique
+  name        String
+  description String
+  isPublic    Boolean           @default(true)
+  memberCount Int               @default(0) //cache, cap nhat khi CommunityMember.status -> APPROVED
+  ownerId     String?
+  owner       User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  channels    Channel[]
+  members     CommunityMember[]
+  posts       CommunityPost[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+enum ChannelGroup {
+  KNOWLEDGE
+  TOOLS
+}
+
+model Channel {
+  id             String          @id @default(uuid())
+  communityId    String
+  community      Community       @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  slug           String
+  name           String
+  group          ChannelGroup    @default(KNOWLEDGE)
+  description    String
+  bannerImageUrl String?
+  messageCount   Int             @default(0) //cache
+  orderIndex     Int             @default(0)
+  posts          CommunityPost[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([communityId, slug])
+  @@index([communityId])
+}
+
+enum CommunityMemberRole {
+  OWNER
+  ADMIN
+  MENTOR
+  MEMBER
+}
+
+enum CommunityMemberStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model CommunityMember {
+  id          String                @id @default(uuid())
+  communityId String
+  community   Community             @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        CommunityMemberRole   @default(MEMBER)
+  status      CommunityMemberStatus @default(PENDING)
+  points      Int                   @default(0) // diem hoat dong, hien "X diem" o activeMembers
+  joinReason  String? // ly do xin tham gia, ung voi CommunityJoinRequestDetailed.reason
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+
+  @@unique([communityId, userId])
+  @@index([communityId, status])
+  @@index([userId])
+}
+
+enum CommunityPostCategory {
+  LEARNING
+  QUESTION
+  RESOURCE
+}
+
+model CommunityPost {
+  id            String                 @id @default(uuid())
+  communityId   String
+  community     Community              @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  channelId     String
+  channel       Channel                @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  authorId      String
+  author        User                   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  category      CommunityPostCategory?
+  title         String?
+  content       String
+  data          Json?
+  isPinned      Boolean                @default(false)
+  likesCount    Int                    @default(0)
+  commentsCount Int                    @default(0)
+  comments      Comment[]
+  reactions     Reaction[]
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@index([channelId, createdAt])
+  @@index([communityId, createdAt])
+  @@index([authorId])
+}
+
+model Comment {
+  id        String        @id @default(uuid())
+  postId    String
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Comment?      @relation("CommentToComment", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[]     @relation("CommentToComment")
+  content   String
+  reactions Reaction[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([postId, createdAt])
+  @@index([parentId])
+  @@index([authorId])
+}
+
+model Reaction {
+  id        String         @id @default(uuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String
+  postId    String?
+  post      CommunityPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  commentId String?
+  comment   Comment?       @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([userId, postId, emoji])
+  @@unique([userId, commentId, emoji])
+  @@index([postId])
+  @@index([commentId])
 }
