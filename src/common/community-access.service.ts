@@ -20,7 +20,7 @@ export class CommunityAccessService {
   ): Promise<void> {
     const community = await this.prisma.community.findUnique({
       where: { id: communityId },
-      select: { isPrivate: true },
+      select: { isPublic: true },
     });
     if (!community) {
       throw new NotFoundException(`Community ${communityId} not found`);
@@ -52,10 +52,10 @@ export class CommunityAccessService {
   async assertChannelViewable(
     channelId: string,
     userId: string,
-  ): Promise<void> {
+  ): Promise<{ communityId: string }> {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
-      select: { communityId: true, isPrivate: true },
+      select: { communityId: true, community: { select: { isPublic: true } } },
     });
     if (!channel) {
       throw new NotFoundException(`Channel ${channelId} not found`);
@@ -66,5 +66,88 @@ export class CommunityAccessService {
     return {
       communityId: channel.communityId,
     };
+  }
+
+  async assertChannelMember(
+    channelId: string,
+    userId: string,
+  ): Promise<{ communityId: string }> {
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: channelId },
+      select: { communityId: true },
+    });
+    if (!channel) {
+      throw new NotFoundException(`Channel ${channelId} not found`);
+    }
+    await this.assertCommunityMember(channel.communityId, userId);
+    return { communityId: channel.communityId };
+  }
+
+  async assertPostViewable(
+    postId: string,
+    userId: string,
+  ): Promise<{ channelId: string; communityId: string }> {
+    const post = await this.prisma.communityPost.findUnique({
+      where: { id: postId },
+      select: {
+        channelId: true,
+        communityId: true,
+        community: { select: { isPublic: true } },
+      },
+    });
+    if (!post) throw new NotFoundException(`Post ${postId} not found`);
+    if (!post.community.isPublic) {
+      await this.assertCommunityMember(post.communityId, userId);
+    }
+    return { channelId: post.channelId, communityId: post.communityId };
+  }
+
+  async assertPostMember(
+    postId: string,
+    userId: string,
+  ): Promise<{ channelId: string; communityId: string }> {
+    const post = await this.prisma.communityPost.findUnique({
+      where: { id: postId },
+      select: { channelId: true, communityId: true },
+    });
+    if (!post) throw new NotFoundException(`Post ${postId} not found`);
+    await this.assertCommunityMember(post.communityId, userId);
+    return { channelId: post.channelId, communityId: post.communityId };
+  }
+
+  async assertPostModerator(
+    postId: string,
+    userId: string,
+  ): Promise<{ communityId: string }> {
+    const post = await this.prisma.communityPost.findUnique({
+      where: { id: postId },
+      select: { communityId: true },
+    });
+    if (!post) throw new NotFoundException(`Post ${postId} not found`);
+    await this.assertCommunityModerator(post.communityId, userId);
+    return { communityId: post.communityId };
+  }
+
+  async assertPostOwner(postId: string, userId: string): Promise<void> {
+    const post = await this.prisma.communityPost.findUnique({
+      where: { id: postId },
+      select: { authorId: true },
+    });
+    if (!post || post.authorId !== userId) {
+      throw new NotFoundException(`Post ${postId} not found`);
+    }
+  }
+
+  async assertCommentOwnerOrModerator(
+    commentId: string,
+    userId: string,
+  ): Promise<void> {
+    const comment = await this.prisma.comment.findUnique({
+      where: { id: commentId },
+      select: { authorId: true, post: { select: { communityId: true } } },
+    });
+    if (!comment) throw new NotFoundException(`Comment ${commentId} not found`);
+    if (comment.authorId === userId) return;
+    await this.assertCommunityModerator(comment.post.communityId, userId);
   }
 }

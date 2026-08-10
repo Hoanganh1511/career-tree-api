@@ -244,6 +244,7 @@ model User {
   communityPosts       CommunityPost[]
   comments             Comment[]
   reactions            Reaction[]
+  requestedChannels    Channel[]         @relation("ChannelRequestedBy")
 }
 
 model SystemFlag {
@@ -529,6 +530,12 @@ enum ChannelGroup {
   TOOLS
 }
 
+enum ChannelStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model Channel {
   id             String          @id @default(uuid())
   communityId    String
@@ -540,12 +547,21 @@ model Channel {
   bannerImageUrl String?
   messageCount   Int             @default(0) //cache
   orderIndex     Int             @default(0)
+  // Kenh do OWNER/ADMIN tao -> APPROVED ngay; thanh vien thuong de xuat ->
+  // PENDING, cho quan tri duyet (xem ChannelService.create). Danh sach kenh
+  // hien thi (findAllForCommunity, CommunityService.findBySlug) CHI lay
+  // APPROVED - PENDING/REJECTED khong lo ra ngoai tru cho moderator xem qua
+  // channelRequests.
+  status         ChannelStatus   @default(PENDING)
+  requestedById  String?
+  requestedBy    User?           @relation("ChannelRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
   posts          CommunityPost[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
   @@unique([communityId, slug])
   @@index([communityId])
+  @@index([communityId, status])
 }
 
 enum CommunityMemberRole {

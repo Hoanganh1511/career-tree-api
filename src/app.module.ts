@@ -18,6 +18,12 @@ import { PostModule } from './post/post.module';
 import { FollowModule } from './follow/follow.module';
 import { FeedCategoryModule } from './feed-category/feed-category.module';
 import { ContestModule } from './contest/contest.module';
+import { CommunityModule } from './community/community.module';
+import { ChannelModule } from './channel/channel.module';
+import { CommunityMemberModule } from './community-member/community-member.module';
+import { CommunityPostModule } from './community-post/community-post.module';
+import { CommentModule } from './comment/comment.module';
+import { ReactionModule } from './reaction/reaction.module';
 
 @Module({
   imports: [
@@ -38,6 +44,12 @@ import { ContestModule } from './contest/contest.module';
     FollowModule,
     FeedCategoryModule,
     ContestModule,
+    CommunityModule,
+    ChannelModule,
+    CommunityMemberModule,
+    CommunityPostModule,
+    CommentModule,
+    ReactionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
