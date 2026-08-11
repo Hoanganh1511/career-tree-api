@@ -24,6 +24,7 @@ import { CommunityMemberModule } from './community-member/community-member.modul
 import { CommunityPostModule } from './community-post/community-post.module';
 import { CommentModule } from './comment/comment.module';
 import { ReactionModule } from './reaction/reaction.module';
+import { DocumentModule } from './document/document.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { ReactionModule } from './reaction/reaction.module';
     CommunityPostModule,
     CommentModule,
     ReactionModule,
+    DocumentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

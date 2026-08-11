@@ -245,6 +245,7 @@ model User {
   comments             Comment[]
   reactions            Reaction[]
   requestedChannels    Channel[]         @relation("ChannelRequestedBy")
+  documents            Document[]
 }
 
 model SystemFlag {
@@ -660,4 +661,31 @@ model Reaction {
   @@unique([userId, commentId, emoji])
   @@index([postId])
   @@index([commentId])
+}
+
+// "Tài liệu" - bài viết dài do chinh nguoi dung soan bang editor lon (Tiptap
+// JSON), THUOC VE tac gia (khong gan community/channel) va hien trong tab
+// "Tài liệu" cua profile. Khac CommunityPost (bai ngan trong 1 kenh) va Post
+// (feed kham pha) - day la "tai lieu" co the ghim, co trang doc rieng
+// /u/[username]/docs/[slug]. `content` la Tiptap JSON (giong Node.content /
+// Card.content). Slug DUY NHAT trong pham vi 1 tac gia (2 nguoi khac nhau co
+// the cung slug).
+model Document {
+  id            String   @id @default(uuid())
+  authorId      String
+  author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  slug          String
+  title         String
+  summary       String? // mo ta ngan, hien o the danh sach + og description
+  coverImageUrl String? // anh bia (nhap qua URL - chua co upload S3)
+  content       Json // Tiptap/ProseMirror JSON
+  tags          String[] @default([])
+  isPinned      Boolean  @default(false) // ghim len dau tab Tài liệu cua profile
+  isPublished   Boolean  @default(true) // false = ban nhap, chi tac gia thay
+  viewCount     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([authorId, slug])
+  @@index([authorId, isPinned, updatedAt])
 }
