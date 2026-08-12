@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "PostKind" ADD VALUE 'WORKSPACE_POST';

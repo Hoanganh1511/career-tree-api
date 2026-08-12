@@ -38,6 +38,14 @@ export class DocumentController {
     return doc;
   }
 
+  @Get('knowledge-groups/:groupId/documents')
+  listByGroup(
+    @CurrentUserId() userId: string,
+    @Param('groupId') groupId: string,
+  ) {
+    return this.documentService.listByGroup(userId, groupId);
+  }
+
   @Post('documents')
   create(@CurrentUserId() userId: string, @Body() dto: CreateDocumentDto) {
     return this.documentService.create(userId, dto);
@@ -66,5 +74,10 @@ export class DocumentController {
   @Delete('documents/:id/pin')
   unpin(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.documentService.setPinned(userId, id, false);
+  }
+
+  @Post('documents/:id/share')
+  share(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.documentService.shareToFeed(userId, id);
   }
 }

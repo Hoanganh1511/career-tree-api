@@ -3,6 +3,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import { UpdateDocumentDto } from './dto/update-document.dto';
+import { KnowledgeGroupAccessService } from '../common/knowledge-group-access.service';
+import { PostService } from '../post/post.service';
 
 const authorSelect = {
   id: true,
@@ -31,7 +33,11 @@ function slugify(input: string): string {
 
 @Injectable()
 export class DocumentService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private groupAccess: KnowledgeGroupAccessService,
+    private postService: PostService,
+  ) {}
 
   // Sinh slug DUY NHAT trong pham vi 1 tac gia: slugify(title) roi them -2,
   // -3... neu trung. Chi xet cua chinh tac gia (2 nguoi khac co the cung slug).
@@ -49,25 +55,36 @@ export class DocumentService {
   }
 
   async create(userId: string, dto: CreateDocumentDto) {
+    await this.groupAccess.assertGroupWriter(dto.knowledgeGroupId, userId);
     const slug = await this.uniqueSlug(userId, dto.title);
-    const doc = await this.prisma.document.create({
-      data: {
-        authorId: userId,
-        slug,
-        title: dto.title,
-        summary: dto.summary,
-        coverImageUrl: dto.coverImageUrl,
-        content: dto.content as Prisma.InputJsonValue,
-        tags: dto.tags ?? [],
-        isPublished: dto.isPublished ?? true,
-      },
-      include: { author: { select: authorSelect } },
+    const doc = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.document.create({
+        data: {
+          authorId: userId,
+          knowledgeGroupId: dto.knowledgeGroupId,
+          slug,
+          title: dto.title,
+          summary: dto.summary,
+          coverImageUrl: dto.coverImageUrl,
+          content: dto.content as Prisma.InputJsonValue,
+          tags: dto.tags ?? [],
+          isPublished: dto.isPublished ?? true,
+        },
+        include: { author: { select: authorSelect } },
+      });
+      await tx.knowledgeGroup.update({
+        where: { id: dto.knowledgeGroupId },
+        data: { postCount: { increment: 1 } },
+      });
+      return created;
     });
     return this.toApi(doc);
   }
 
   // Danh sach tai lieu cua 1 tac gia (theo username) - nguoi khac chi thay
-  // ban da xuat ban (isPublished), chinh chu thay ca ban nhap. Ghim len dau.
+  // ban da xuat ban (isPublished) VA thuoc nhom PUBLIC (hoac nhom PRIVATE ma
+  // viewer la collaborator APPROVED), chinh chu thay het ca ban nhap lan bai
+  // trong nhom private. Ghim len dau.
   async listByAuthor(viewerId: string, username: string) {
     const author = await this.prisma.user.findUnique({
       where: { username },
@@ -82,21 +99,88 @@ export class DocumentService {
         ...(isSelf ? {} : { isPublished: true }),
       },
       orderBy: [{ isPinned: 'desc' }, { updatedAt: 'desc' }],
-      include: { author: { select: authorSelect } },
+      include: {
+        author: { select: authorSelect },
+        knowledgeGroup: { select: { visibility: true } },
+      },
     });
-    return docs.map((d) => this.toApiSummary(d, isSelf));
+
+    const visibleDocs = isSelf
+      ? docs
+      : await this.filterByGroupVisibility(docs, viewerId);
+    return visibleDocs.map((d) => this.toApiSummary(d, isSelf));
   }
 
-  // Tra ve null (khong throw) khi khong thay HOAC ban nhap ma nguoi xem khong
-  // phai tac gia - de controller tu quyet dinh 404.
+  // Danh sach bai viet trong 1 Knowledge Group - duong fetch chinh cho UI
+  // drill-down Workspace -> Group. Ban nhap chi hien voi dung tac gia cua no
+  // (1 nhom co the co nhieu collaborator, moi nguoi khong thay ban nhap cua
+  // nguoi khac).
+  async listByGroup(viewerId: string, groupId: string) {
+    await this.groupAccess.assertGroupViewable(groupId, viewerId);
+    const docs = await this.prisma.document.findMany({
+      where: { knowledgeGroupId: groupId },
+      orderBy: [{ isPinned: 'desc' }, { updatedAt: 'desc' }],
+      include: { author: { select: authorSelect } },
+    });
+    return docs
+      .filter((d) => d.isPublished || d.authorId === viewerId)
+      .map((d) => this.toApiSummary(d, d.authorId === viewerId));
+  }
+
+  // Loc bot bai thuoc nhom PRIVATE ma viewer khong phai collaborator APPROVED
+  // - dung 1 batch query thay vi kiem tung bai rieng.
+  private async filterByGroupVisibility<
+    T extends {
+      knowledgeGroupId: string;
+      knowledgeGroup: { visibility: string };
+    },
+  >(docs: T[], viewerId: string): Promise<T[]> {
+    const privateGroupIds = [
+      ...new Set(
+        docs
+          .filter((d) => d.knowledgeGroup.visibility === 'PRIVATE')
+          .map((d) => d.knowledgeGroupId),
+      ),
+    ];
+    if (privateGroupIds.length === 0) return docs;
+    const collabs = await this.prisma.knowledgeGroupCollaborator.findMany({
+      where: {
+        groupId: { in: privateGroupIds },
+        userId: viewerId,
+        status: 'APPROVED',
+      },
+      select: { groupId: true },
+    });
+    const approvedGroupIds = new Set(collabs.map((c) => c.groupId));
+    return docs.filter(
+      (d) =>
+        d.knowledgeGroup.visibility === 'PUBLIC' ||
+        approvedGroupIds.has(d.knowledgeGroupId),
+    );
+  }
+
+  // Tra ve null (khong throw) khi khong thay, ban nhap ma nguoi xem khong
+  // phai tac gia, HOAC thuoc nhom PRIVATE ma viewer khong phai collaborator
+  // APPROVED - de controller tu quyet dinh 404.
   async findBySlug(viewerId: string, username: string, slug: string) {
     const doc = await this.prisma.document.findFirst({
       where: { slug, author: { username } },
-      include: { author: { select: authorSelect } },
+      include: {
+        author: { select: authorSelect },
+        knowledgeGroup: { select: { visibility: true } },
+      },
     });
     if (!doc) return null;
     const isSelf = doc.authorId === viewerId;
     if (!doc.isPublished && !isSelf) return null;
+
+    if (doc.knowledgeGroup.visibility === 'PRIVATE' && !isSelf) {
+      const collab = await this.groupAccess.getCollaboration(
+        doc.knowledgeGroupId,
+        viewerId,
+      );
+      if (!collab || collab.status !== 'APPROVED') return null;
+    }
 
     // Tang luot xem khi NGUOI KHAC doc (khong tinh chinh tac gia).
     if (!isSelf) {
@@ -142,7 +226,13 @@ export class DocumentService {
 
   async remove(userId: string, documentId: string) {
     await this.assertAuthor(documentId, userId);
-    await this.prisma.document.delete({ where: { id: documentId } });
+    await this.prisma.$transaction(async (tx) => {
+      const deleted = await tx.document.delete({ where: { id: documentId } });
+      await tx.knowledgeGroup.update({
+        where: { id: deleted.knowledgeGroupId },
+        data: { postCount: { decrement: 1 } },
+      });
+    });
   }
 
   async setPinned(userId: string, documentId: string, isPinned: boolean) {
@@ -153,6 +243,30 @@ export class DocumentService {
       include: { author: { select: authorSelect } },
     });
     return this.toApi(doc, true);
+  }
+
+  // "Chia se len bang tin" - tao 1 Post THAT trong feed kham pha (khac hoan
+  // toan viec chi doi visibility), chi tac gia chia se duoc bai cua chinh
+  // minh. `data` chi mang du du lieu de feed render 1 card + link ve lai
+  // trang bai viet day du, khong nhan ban sao noi dung (content) vao Post.
+  async shareToFeed(userId: string, documentId: string) {
+    await this.assertAuthor(documentId, userId);
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      include: { author: { select: authorSelect } },
+    });
+    if (!doc) throw new NotFoundException(`Document ${documentId} not found`);
+
+    return this.postService.create(userId, {
+      kind: 'workspace-post',
+      data: {
+        title: doc.title,
+        summary: doc.summary ?? undefined,
+        coverImageUrl: doc.coverImageUrl ?? undefined,
+        authorUsername: doc.author.username ?? doc.author.id,
+        slug: doc.slug,
+      },
+    });
   }
 
   private toApi(doc: DocWithAuthor, isSelf = false) {

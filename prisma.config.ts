@@ -5,9 +5,11 @@ import { defineConfig } from 'prisma/config';
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
+  // Khong con 1 seed "chinh" duy nhat - chay tay tsx prisma/seed-community.ts
+  // roi tsx prisma/seed-posts.ts khi can du lieu mau (seed.ts/seed-swe.ts cu
+  // cua Skill Tree da xoa cung tinh nang).
   migrations: {
     path: 'prisma/migrations',
-    seed: 'tsx prisma/seed.ts',
   },
   datasource: {
     url: process.env['DATABASE_URL'],

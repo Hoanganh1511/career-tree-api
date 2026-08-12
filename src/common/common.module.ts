@@ -1,10 +1,10 @@
 import { Global, Module } from '@nestjs/common';
-import { OwnershipService } from './ownership.service';
 import { CommunityAccessService } from './community-access.service';
+import { KnowledgeGroupAccessService } from './knowledge-group-access.service';
 
 @Global()
 @Module({
-  providers: [OwnershipService, CommunityAccessService],
-  exports: [OwnershipService, CommunityAccessService],
+  providers: [CommunityAccessService, KnowledgeGroupAccessService],
+  exports: [CommunityAccessService, KnowledgeGroupAccessService],
 })
 export class CommonModule {}

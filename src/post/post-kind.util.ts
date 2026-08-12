@@ -30,6 +30,7 @@ export const POST_KINDS = [
   'experiment',
   'event',
   'skill-report',
+  'workspace-post',
 ] as const;
 
 export type PostKindApi = (typeof POST_KINDS)[number];

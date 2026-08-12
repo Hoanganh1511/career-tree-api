@@ -32,8 +32,6 @@ export class UserService {
   ) {}
 
   async syncUser(dto: SyncUserDto): Promise<{ id: string }> {
-    await this.ensureSystemFlagRow();
-
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.upsert({
         where: { googleId: dto.googleId },
@@ -77,27 +75,6 @@ export class UserService {
         });
       }
 
-      const claim = await tx.systemFlag.updateMany({
-        where: { id: 1, legacyBackfillDone: false },
-        data: { legacyBackfillDone: true },
-      });
-
-      if (claim.count === 1) {
-        await tx.workspace.updateMany({
-          where: { ownerId: null },
-          data: { ownerId: user.id },
-        });
-      } else {
-        const ownWorkspaceCount = await tx.workspace.count({
-          where: { ownerId: user.id },
-        });
-        if (ownWorkspaceCount === 0) {
-          await tx.workspace.create({
-            data: { name: 'My Career Tree', ownerId: user.id },
-          });
-        }
-      }
-
       return { id: user.id };
     });
   }
@@ -112,22 +89,6 @@ export class UserService {
       select: { tokensValidAfter: true },
     });
     return { revokedAt: user.tokensValidAfter!.toISOString() };
-  }
-
-  private async ensureSystemFlagRow(): Promise<void> {
-    try {
-      await this.prisma.systemFlag.create({
-        data: { id: 1, legacyBackfillDone: false },
-      });
-    } catch (e) {
-      if (
-        e instanceof Prisma.PrismaClientKnownRequestError &&
-        e.code === 'P2002'
-      ) {
-        return;
-      }
-      throw e;
-    }
   }
 
   async canViewProfile(viewerId: string, targetId: string): Promise<boolean> {

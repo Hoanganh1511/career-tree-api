@@ -6,14 +6,6 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { CommonModule } from './common/common.module';
 import { UserModule } from './user/user.module';
-import { WorkspaceModule } from './workspace/workspace.module';
-import { NodeModule } from './node/node.module';
-import { CardModule } from './card/card.module';
-import { ResourceModule } from './resource/resource.module';
-import { IssueModule } from './issue/issue.module';
-import { NotificationModule } from './notification/notification.module';
-import { TierModule } from './tier/tier.module';
-import { CategoryModule } from './category/category.module';
 import { PostModule } from './post/post.module';
 import { FollowModule } from './follow/follow.module';
 import { FeedCategoryModule } from './feed-category/feed-category.module';
@@ -25,6 +17,9 @@ import { CommunityPostModule } from './community-post/community-post.module';
 import { CommentModule } from './comment/comment.module';
 import { ReactionModule } from './reaction/reaction.module';
 import { DocumentModule } from './document/document.module';
+import { WorkspaceModule } from './workspace/workspace.module';
+import { KnowledgeGroupModule } from './knowledge-group/knowledge-group.module';
+import { KnowledgeGroupCollaboratorModule } from './knowledge-group-collaborator/knowledge-group-collaborator.module';
 
 @Module({
   imports: [
@@ -33,14 +28,6 @@ import { DocumentModule } from './document/document.module';
     AuthModule,
     CommonModule,
     UserModule,
-    WorkspaceModule,
-    NodeModule,
-    CardModule,
-    ResourceModule,
-    IssueModule,
-    NotificationModule,
-    TierModule,
-    CategoryModule,
     PostModule,
     FollowModule,
     FeedCategoryModule,
@@ -52,6 +39,9 @@ import { DocumentModule } from './document/document.module';
     CommentModule,
     ReactionModule,
     DocumentModule,
+    WorkspaceModule,
+    KnowledgeGroupModule,
+    KnowledgeGroupCollaboratorModule,
   ],
   controllers: [AppController],
   providers: [AppService],

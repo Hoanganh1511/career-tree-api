@@ -11,6 +11,10 @@ import {
 export class CreateDocumentDto {
   @IsString()
   @IsNotEmpty()
+  knowledgeGroupId!: string;
+
+  @IsString()
+  @IsNotEmpty()
   @MaxLength(200)
   title!: string;
 

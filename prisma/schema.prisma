@@ -13,200 +13,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum ShareMode {
-  PRIVATE
-  STRUCTURE_ONLY
-  FULL
-}
-
-model Workspace {
-  id            String         @id @default(uuid())
-  name          String         @default("My Career Tree")
-  shareToken    String?        @unique
-  shareMode     ShareMode      @default(PRIVATE)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  nodes         Node[]
-  categories    Category[]
-  crossLinks    CrossLink[]
-  notifications Notification[]
-  owner         User?          @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  ownerId       String?
-
-  @@index([ownerId])
-}
-
-// Skill Tree: tang phan cap moi giua Workspace va Tier - 1 Workspace (=
-// 1 "Skill Set") co nhieu Category (vd "Frontend", "Backend"), MOI Category
-// co bo Tier rieng cua no (khong dung chung Tier giua cac Category).
-model Category {
-  id          String    @id @default(uuid())
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  name        String
-  description String? // mo ta ngan, hien trong Knowledge Block Summary
-  icon        String? // slug icon (vd simple-icons/lucide), tuy chon
-  color       String? // hex, dung cho khoi the Category ben trai canvas
-  orderIndex  Int       @default(0)
-  tiers       Tier[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([workspaceId])
-}
-
-enum NotificationType {
-  SYSTEM
-  CONNECTION
-}
-
-model Notification {
-  id          String           @id @default(uuid())
-  workspaceId String
-  workspace   Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  type        NotificationType
-  title       String
-  body        String?
-  read        Boolean          @default(false)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-
-  @@index([workspaceId])
-}
-
-model Node {
-  id               String      @id @default(uuid())
-  workspaceId      String
-  workspace        Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  parentId         String?
-  parent           Node?       @relation("NodeToNode", fields: [parentId], references: [id], onDelete: Cascade)
-  children         Node[]      @relation("NodeToNode")
-  kind             NodeKind    @default(BRANCH)
-  category         String?
-  difficulty       Difficulty?
-  estimatedTime    String?
-  prerequisites    String[]    @default([])
-  learningOutcomes String[]    @default([])
-  title            String
-  goal             String?
-  isPinned         Boolean     @default(false) //nut bookmark
-  tags             String[]    @default([]) // Javascript, TypeScript, Nestjs.,...
-  content          Json? // Tiptap/ProseMirror JSON — long-form notes for this node (distinct from Card, which is the quick activity log)
-  depth            Int         @default(0)
-  orderIndex       Int         @default(0)
-  x                Float?
-  y                Float?
-  hiddenFromShare  Boolean     @default(false)
-  isCollapsed      Boolean     @default(false)
-  // Skill Tree: null = node chua gan tier (vd node cua Career Tree canvas cu),
-  // gan Tier moi khi node duoc dat vao 1 vi tri tren skill tree.
-  tierId           String?
-  tier             Tier?       @relation(fields: [tierId], references: [id], onDelete: SetNull)
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  cards            Card[]
-  crossLinksFrom   CrossLink[] @relation("CrossLinkFrom")
-  crossLinksTo     CrossLink[] @relation("CrossLinkTo")
-  resources        Resource[]
-  issues           Issue[]
-
-  @@index([workspaceId, parentId])
-  @@index([tierId])
-}
-
-// Tier thuoc ve 1 Category (khong con thuoc truc tiep Workspace) - moi
-// Category co bo Tier rieng cua no.
-model Tier {
-  id         String   @id @default(uuid())
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  label      String // "TIER 1"
-  sublabel   String // "FOUNDATION"
-  orderIndex Int      @default(0)
-  nodes      Node[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([categoryId])
-}
-
-enum CardKind {
-  NOTE
-  PRACTICE
-}
-
-model Card {
-  id         String   @id @default(uuid())
-  nodeId     String
-  node       Node     @relation(fields: [nodeId], references: [id], onDelete: Cascade)
-  content    Json //Tiptap/ProseMirror JSON
-  kind       CardKind @default(NOTE)
-  orderIndex Int      @default(0)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  @@index([nodeId])
-}
-
-enum ResourceType {
-  ARTICLE
-  VIDEO
-  DOC
-  COURSE
-  BOOK
-}
-
-enum NodeKind {
-  BRANCH
-  TOPIC
-}
-
-enum Difficulty {
-  EASY
-  MEDIUM
-  HARD
-}
-
-model Resource {
-  id         String       @id @default(uuid())
-  nodeId     String
-  node       Node         @relation(fields: [nodeId], references: [id], onDelete: Cascade)
-  type       ResourceType
-  title      String
-  url        String
-  orderIndex Int          @default(0)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-
-  @@index([nodeId])
-}
-
-model Issue {
-  id        String   @id @default(uuid())
-  nodeId    String
-  node      Node     @relation(fields: [nodeId], references: [id], onDelete: Cascade)
-  question  String
-  resolved  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([nodeId])
-}
-
-model CrossLink {
-  id          String    @id @default(uuid())
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  fromNodeId  String
-  fromNode    Node      @relation("CrossLinkFrom", fields: [fromNodeId], references: [id], onDelete: Cascade)
-  toNodeId    String?
-  toNode      Node?     @relation("CrossLinkTo", fields: [toNodeId], references: [id], onDelete: Cascade)
-  label       String?
-  createdAt   DateTime  @default(now())
-
-  @@unique([fromNodeId, toNodeId])
-}
-
 model User {
   id                String       @id @default(uuid())
   googleId          String       @unique
@@ -229,7 +35,6 @@ model User {
   verified          Boolean      @default(false)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
-  workspaces        Workspace[]
   posts             Post[]
   followerCount     Int          @default(0)
   followingCount    Int          @default(0)
@@ -239,18 +44,15 @@ model User {
   blockedBy         UserBlock[]  @relation("Blocked")
   profile           UserProfile?
 
-  communitiesOwened    Community[]
-  communityMemberships CommunityMember[]
-  communityPosts       CommunityPost[]
-  comments             Comment[]
-  reactions            Reaction[]
-  requestedChannels    Channel[]         @relation("ChannelRequestedBy")
-  documents            Document[]
-}
-
-model SystemFlag {
-  id                 Int     @id @default(1)
-  legacyBackfillDone Boolean @default(false)
+  communitiesOwened            Community[]
+  communityMemberships         CommunityMember[]
+  communityPosts               CommunityPost[]
+  comments                     Comment[]
+  reactions                    Reaction[]
+  requestedChannels            Channel[]                    @relation("ChannelRequestedBy")
+  documents                    Document[]
+  workspaces                   Workspace[]
+  knowledgeGroupCollaborations KnowledgeGroupCollaborator[]
 }
 
 // Feed Trang chu - truoc day 100% mock o frontend (enggo/src/content/
@@ -285,6 +87,7 @@ enum PostKind {
   EXPERIMENT
   EVENT
   SKILL_REPORT
+  WORKSPACE_POST
 }
 
 enum FollowStatus {
@@ -353,11 +156,10 @@ enum PostCategory {
 }
 
 // Phan loai bai dang theo LINH VUC NGHE NGHIEP - 2 tang (nhom cha -> nhanh
-// con), KHAC HAN 2 thu de nham ten:
-// - `Category` (o tren): category cua Skill Tree, gan workspaceId, chua Tier.
-// - `PostCategory` (enum): truc "topic" cua Knowledge Worlds (FRONTEND/LLM/...).
-// 1 post co the mang CA HAI phan loai (vd topic=PERFORMANCE +
-// nghe nghiep="Lap trinh web/mobile") nen phai la 2 cot rieng, khong gop.
+// con), khac voi `PostCategory` (enum) - truc "topic" cua Knowledge Worlds
+// (FRONTEND/LLM/...). 1 post co the mang CA HAI phan loai (vd
+// topic=PERFORMANCE + nghe nghiep="Lap trinh web/mobile") nen phai la 2 cot
+// rieng, khong gop.
 //
 // Danh sach nhom/nhanh dinh nghia san qua seed (prisma/seed-posts.ts), user
 // KHONG tu tao duoc.
@@ -663,29 +465,116 @@ model Reaction {
   @@index([commentId])
 }
 
-// "Tài liệu" - bài viết dài do chinh nguoi dung soan bang editor lon (Tiptap
-// JSON), THUOC VE tac gia (khong gan community/channel) va hien trong tab
-// "Tài liệu" cua profile. Khac CommunityPost (bai ngan trong 1 kenh) va Post
-// (feed kham pha) - day la "tai lieu" co the ghim, co trang doc rieng
-// /u/[username]/docs/[slug]. `content` la Tiptap JSON (giong Node.content /
-// Card.content). Slug DUY NHAT trong pham vi 1 tac gia (2 nguoi khac nhau co
-// the cung slug).
+// Workspace - vung kien thuc top-level do CHINH nguoi dung tu dat ten (vd
+// "Hoc tap", "Film"), KHONG phai enum co dinh. Chi CHU SO HUU tao/xoa/sua
+// Workspace; cong tac (collaboration) chi xay ra o tang KnowledgeGroup ben
+// duoi, khong o tang nay. Hien trong tab "Workspace" cua profile
+// (/u/[username]/workspaces), thay cho tab "Tài liệu" (docs) cu.
+model Workspace {
+  id          String           @id @default(uuid())
+  ownerId     String
+  owner       User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  icon        String? // slug icon, tuy chon
+  color       String? // hex accent, tuy chon
+  orderIndex  Int              @default(0)
+  groups      KnowledgeGroup[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([ownerId, orderIndex])
+}
+
+enum KnowledgeGroupVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+// Nhom kien thuc - tang phan cap giua Workspace va Document. `visibility`
+// CHI gate quyen XEM cho nguoi khong phai collaborator (PUBLIC = ai cung xem
+// duoc bai da publish trong nhom; PRIVATE = chi chu + collaborator da duoc
+// duyet). Quyen GHI (tao/sua bai) LUON LA chu so huu + collaborator
+// APPROVED, BAT KE visibility - PUBLIC khong co nghia la "ai cung viet duoc",
+// chi la "ai cung xem duoc".
+model KnowledgeGroup {
+  id            String                       @id @default(uuid())
+  workspaceId   String
+  workspace     Workspace                    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  visibility    KnowledgeGroupVisibility     @default(PRIVATE)
+  // Cache so bai viet - dong bo trong $transaction khi Document duoc tao/xoa
+  // trong nhom nay, giong pattern Community.memberCount.
+  postCount     Int                          @default(0)
+  orderIndex    Int                          @default(0)
+  documents     Document[]
+  collaborators KnowledgeGroupCollaborator[]
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
+
+  @@index([workspaceId, orderIndex])
+}
+
+enum KnowledgeGroupCollabStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Yeu cau cong tac tren 1 KnowledgeGroup - GIONG HET pattern CommunityMember
+// (status PENDING/APPROVED/REJECTED, joinReason tu do, 404-on-fail convention
+// o service layer). APPROVED = duoc viet bai chung trong nhom (quyen GHI
+// thuc su, khong chi quyen XEM) - ap dung cho CA group PUBLIC lan PRIVATE, vi
+// visibility chi gate xem, khong gate quyen ghi.
+model KnowledgeGroupCollaborator {
+  id         String                     @id @default(uuid())
+  groupId    String
+  group      KnowledgeGroup             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status     KnowledgeGroupCollabStatus @default(PENDING)
+  joinReason String?
+  createdAt  DateTime                   @default(now())
+  updatedAt  DateTime                   @updatedAt
+
+  @@unique([groupId, userId])
+  @@index([groupId, status])
+  @@index([userId])
+}
+
+// "Bai viet" trong 1 Knowledge Group (UI goi la "bai viet"/"post", TEN MODEL
+// giu nguyen "Document" - doi ten se keo theo sua co hoc toan bo
+// src/document/**, DTO, lib/api/documents.ts, cac server action/component
+// frontend ma khong doi hanh vi gi, chi tang rui ro. Tuong tu cach schema nay
+// da tolerate `PostCategory` (enum feed) khac `CommunityPostCategory` du
+// trung y nghia ten - xem comment o tren). Do la bai viet dai do chinh nguoi
+// dung soan bang editor lon (Tiptap JSON), THUOC VE 1 KnowledgeGroup (truoc
+// day thuoc thang ve tac gia, khong qua nhom nao). Khac CommunityPost (bai
+// ngan trong 1 kenh) va Post (feed kham pha) - day la "bai viet" co the ghim,
+// co trang doc rieng /u/[username]/workspaces/[slug], va co the "chia se len
+// bang tin" (tao 1 Post that, xem PostService.create trong document.service.ts).
+// `content` la Tiptap JSON (giong Node.content / Card.content cu). Slug DUY
+// NHAT trong pham vi 1 tac gia (2 nguoi khac nhau co the cung slug).
 model Document {
-  id            String   @id @default(uuid())
-  authorId      String
-  author        User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  slug          String
-  title         String
-  summary       String? // mo ta ngan, hien o the danh sach + og description
-  coverImageUrl String? // anh bia (nhap qua URL - chua co upload S3)
-  content       Json // Tiptap/ProseMirror JSON
-  tags          String[] @default([])
-  isPinned      Boolean  @default(false) // ghim len dau tab Tài liệu cua profile
-  isPublished   Boolean  @default(true) // false = ban nhap, chi tac gia thay
-  viewCount     Int      @default(0)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id               String         @id @default(uuid())
+  authorId         String
+  author           User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  knowledgeGroupId String
+  knowledgeGroup   KnowledgeGroup @relation(fields: [knowledgeGroupId], references: [id], onDelete: Cascade)
+  slug             String
+  title            String
+  summary          String? // mo ta ngan, hien o the danh sach + og description
+  coverImageUrl    String? // anh bia (nhap qua URL - chua co upload S3)
+  content          Json // Tiptap/ProseMirror JSON
+  tags             String[]       @default([])
+  isPinned         Boolean        @default(false) // ghim len dau danh sach bai trong nhom
+  isPublished      Boolean        @default(true) // false = ban nhap, chi tac gia thay
+  viewCount        Int            @default(0)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@unique([authorId, slug])
   @@index([authorId, isPinned, updatedAt])
+  @@index([knowledgeGroupId, isPinned, updatedAt])
 }
