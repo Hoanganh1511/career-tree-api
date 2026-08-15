@@ -565,6 +565,11 @@ model Document {
   slug             String
   title            String
   summary          String? // mo ta ngan, hien o the danh sach + og description
+  // Tong quan noi dung - Tiptap JSON nhung schema HAN CHE (chi in dam/in
+  // nghieng/danh sach cham/danh sach so, xem getOverviewExtensions() o FE).
+  // Hien thanh 1 box duoi tieu de trong danh sach bai viet - KHAC voi
+  // `summary` (plain text, dung cho OG description) va `content` (bai day du).
+  overview         Json?
   coverImageUrl    String? // anh bia (nhap qua URL - chua co upload S3)
   content          Json // Tiptap/ProseMirror JSON
   tags             String[]       @default([])

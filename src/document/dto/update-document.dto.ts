@@ -19,6 +19,10 @@ export class UpdateDocumentDto {
   summary?: string;
 
   @IsOptional()
+  @IsObject()
+  overview?: Record<string, unknown>;
+
+  @IsOptional()
   @IsString()
   coverImageUrl?: string;
 

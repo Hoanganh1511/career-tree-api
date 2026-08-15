@@ -23,6 +23,12 @@ export class CreateDocumentDto {
   @MaxLength(400)
   summary?: string;
 
+  // Tiptap JSON, schema han che (bold/italic/bulletList/orderedList) - xem
+  // comment tren cot `overview` trong schema.prisma.
+  @IsOptional()
+  @IsObject()
+  overview?: Record<string, unknown>;
+
   @IsOptional()
   @IsString()
   coverImageUrl?: string;
