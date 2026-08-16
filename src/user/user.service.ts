@@ -26,12 +26,24 @@ export class UserService {
       },
     },
   } satisfies Prisma.UserSelect;
+
+  // Ban gon cho ket qua tim kiem (dropdown header) - khong can profile/follow
+  // count day du nhu userSelect, giong tinh than miniUserSelect trong
+  // FollowService.
+  private readonly searchUserSelect = {
+    id: true,
+    username: true,
+    name: true,
+    avatarUrl: true,
+    verified: true,
+  } satisfies Prisma.UserSelect;
+
   constructor(
     private prisma: PrismaService,
     private followService: FollowService,
   ) {}
 
-  async syncUser(dto: SyncUserDto): Promise<{ id: string }> {
+  async syncUser(dto: SyncUserDto): Promise<{ id: string; username: string }> {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.upsert({
         where: { googleId: dto.googleId },
@@ -52,7 +64,8 @@ export class UserService {
       // profile (/u/:username) va Post.author. Chi sinh khi con null, khong
       // ghi de - dung slug tu phan truoc @ cua email, doi ky tu la/so, them
       // hau to so neu trung.
-      if (!user.username) {
+      let username = user.username;
+      if (!username) {
         const base =
           dto.email
             .split('@')[0]
@@ -73,9 +86,14 @@ export class UserService {
           where: { id: user.id },
           data: { username: candidate },
         });
+        username = candidate;
       }
 
-      return { id: user.id };
+      // Tra ca username (khong chi id) - frontend can gia tri nay de dua vao
+      // JWT session (xem auth.ts) roi dung xay cac link "/u/:username",
+      // "/workspace/:username" tren header, thay vi phai goi them 1 API rieng
+      // hoac (bug da xay ra truoc day) fallback nham sang du lieu demo tinh.
+      return { id: user.id, username };
     });
   }
 
@@ -133,6 +151,56 @@ export class UserService {
       postCount: target.profile?.postCount ?? 0,
       isSelf: viewerId === target.id,
       isFollowing: isFollowing !== null,
+    };
+  }
+
+  // Tim theo ten hien thi/username (mot phan, khong phan biet hoa thuong) VA
+  // email/id (KHOP CHINH XAC, khong "contains") - email/id la thong tin
+  // dinh danh chinh xac, cho phep do mot phan se ho tro do-doan (enumeration)
+  // ai co tai khoan tu 1 mau email/id ngan. Ket qua LOAI TRU chinh viewer va
+  // 2 chieu block (giong quy uoc canViewProfile o tren) - khong hien nguoi da
+  // block/bi block trong ket qua tim kiem.
+  async search(viewerId: string, q: string, cursor?: string, limit = 10) {
+    const query = q.trim();
+    if (query.length < 2) return { items: [], nextCursor: null };
+
+    const blocks = await this.prisma.userBlock.findMany({
+      where: { OR: [{ blockerId: viewerId }, { blockedId: viewerId }] },
+      select: { blockerId: true, blockedId: true },
+    });
+    const excludedIds = new Set<string>([viewerId]);
+    blocks.forEach((b) =>
+      excludedIds.add(b.blockerId === viewerId ? b.blockedId : b.blockerId),
+    );
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { notIn: [...excludedIds] },
+        OR: [
+          { username: { contains: query, mode: 'insensitive' } },
+          { name: { contains: query, mode: 'insensitive' } },
+          { email: { equals: query, mode: 'insensitive' } },
+          { id: query },
+        ],
+      },
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      orderBy: { id: 'asc' },
+      select: this.searchUserSelect,
+    });
+
+    const hasMore = users.length > limit;
+    const page = hasMore ? users.slice(0, limit) : users;
+
+    return {
+      items: page.map((u) => ({
+        id: u.id,
+        username: u.username,
+        displayName: u.name,
+        avatarUrl: u.avatarUrl ?? '',
+        isVerified: u.verified,
+      })),
+      nextCursor: hasMore ? page[page.length - 1].id : null,
     };
   }
 }

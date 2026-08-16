@@ -53,6 +53,8 @@ model User {
   documents                    Document[]
   workspaces                   Workspace[]
   knowledgeGroupCollaborations KnowledgeGroupCollaborator[]
+  notificationsReceived        Notification[]               @relation("NotificationRecipient")
+  notificationsActedOn         Notification[]               @relation("NotificationActor")
 }
 
 // Feed Trang chu - truoc day 100% mock o frontend (enggo/src/content/
@@ -503,13 +505,20 @@ model KnowledgeGroup {
   workspace     Workspace                    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   name          String
   description   String?
+  // "Muc tieu" cua nhom - Tiptap JSON, schema HAN CHE giong Document.overview
+  // (chi bold/italic/bulletList/orderedList). Hien qua modal rieng o FE
+  // (GroupGoalModal.tsx), chi chu workspace duoc sua (assertGroupOwner, giong
+  // update() cac field khac cua nhom).
+  goal          Json?
   visibility    KnowledgeGroupVisibility     @default(PRIVATE)
   // Cache so bai viet - dong bo trong $transaction khi Document duoc tao/xoa
   // trong nhom nay, giong pattern Community.memberCount.
   postCount     Int                          @default(0)
   orderIndex    Int                          @default(0)
   documents     Document[]
+  series        DocumentSeries[]
   collaborators KnowledgeGroupCollaborator[]
+  notifications Notification[]
   createdAt     DateTime                     @default(now())
   updatedAt     DateTime                     @updatedAt
 
@@ -543,6 +552,40 @@ model KnowledgeGroupCollaborator {
   @@index([userId])
 }
 
+enum NotificationType {
+  // Gui toi CHU workspace so huu nhom khi co nguoi xin cong tac.
+  GROUP_COLLAB_REQUESTED
+  // Gui toi NGUOI XIN khi yeu cau duoc duyet/tu choi.
+  GROUP_COLLAB_APPROVED
+  GROUP_COLLAB_REJECTED
+}
+
+// He thong thong bao - hien CHI phuc vu luong "yeu cau cong tac nhom kien
+// thuc" (3 loai o tren), thiet ke du rong de mo rong loai khac sau nay
+// (moi loai la 1 gia tri enum + cach dien giai rieng o FE, khong can bang
+// rieng). `actorId` nullable (SetNull) - giu lai thong bao ke ca khi actor
+// bi xoa tai khoan; `groupId` gan CASCADE theo nhom (nhom xoa thi thong bao
+// ve no khong con y nghia). `collabId` la tham chieu MEM (khong FK that toi
+// KnowledgeGroupCollaborator) - collaborator co the bi xoa qua leave() sau
+// khi thong bao da ton tai, khong muon rang buoc/cascade xoa lich su thong
+// bao theo do; FE dung field nay de goi thang endpoint duyet/tu choi.
+model Notification {
+  id          String           @id @default(uuid())
+  recipientId String
+  recipient   User             @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actorId     String?
+  actor       User?            @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  type        NotificationType
+  groupId     String?
+  group       KnowledgeGroup?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  collabId    String?
+  readAt      DateTime?
+  createdAt   DateTime         @default(now())
+
+  @@index([recipientId, createdAt])
+  @@index([recipientId, readAt])
+}
+
 // "Bai viet" trong 1 Knowledge Group (UI goi la "bai viet"/"post", TEN MODEL
 // giu nguyen "Document" - doi ten se keo theo sua co hoc toan bo
 // src/document/**, DTO, lib/api/documents.ts, cac server action/component
@@ -557,11 +600,11 @@ model KnowledgeGroupCollaborator {
 // `content` la Tiptap JSON (giong Node.content / Card.content cu). Slug DUY
 // NHAT trong pham vi 1 tac gia (2 nguoi khac nhau co the cung slug).
 model Document {
-  id               String         @id @default(uuid())
+  id               String          @id @default(uuid())
   authorId         String
-  author           User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author           User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
   knowledgeGroupId String
-  knowledgeGroup   KnowledgeGroup @relation(fields: [knowledgeGroupId], references: [id], onDelete: Cascade)
+  knowledgeGroup   KnowledgeGroup  @relation(fields: [knowledgeGroupId], references: [id], onDelete: Cascade)
   slug             String
   title            String
   summary          String? // mo ta ngan, hien o the danh sach + og description
@@ -572,14 +615,85 @@ model Document {
   overview         Json?
   coverImageUrl    String? // anh bia (nhap qua URL - chua co upload S3)
   content          Json // Tiptap/ProseMirror JSON
-  tags             String[]       @default([])
-  isPinned         Boolean        @default(false) // ghim len dau danh sach bai trong nhom
-  isPublished      Boolean        @default(true) // false = ban nhap, chi tac gia thay
-  viewCount        Int            @default(0)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  tags             String[]        @default([])
+  isPinned         Boolean         @default(false) // ghim len dau danh sach bai trong nhom
+  isPublished      Boolean         @default(true) // false = ban nhap, chi tac gia thay
+  viewCount        Int             @default(0)
+  // Nhom "cung chu de" (tuy chon) - xem comment model DocumentSeries. 1 bai
+  // CHI thuoc 1 series (khong many-to-many, giu don gian cho UI gop box).
+  // onDelete: SetNull - xoa series KHONG xoa bai viet theo, chi roi ve
+  // "khong nhom".
+  seriesId         String?
+  series           DocumentSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  // "Nhat ky hoc tap" cong khai gan tren bai viet - xem comment model
+  // ChecklistItem. Cờ nay CHI gate viec nguoi đọc KHÁC co xem duoc LICH SU
+  // (ChecklistItemLog) hay khong - trang thai/note hien tai cua tung muc
+  // LUON cong khai (khong gate boi co nay), dung y dinh "nhat ky cong khai".
+  checklistLogPublic Boolean        @default(false)
+  checklistItems   ChecklistItem[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@unique([authorId, slug])
   @@index([authorId, isPinned, updatedAt])
   @@index([knowledgeGroupId, isPinned, updatedAt])
+  @@index([seriesId])
+}
+
+enum ChecklistStatus {
+  NOT_UNDERSTOOD
+  UNDERSTOOD
+}
+
+// Checklist kien thuc gan tren 1 Document - tac gia liet ke cac topic can
+// nam ("Version", "Statement"...), tu danh dau da hieu/chua + ghi 1 note
+// ngan ("rut ra duoc dieu gi"). Trang thai/note LUON cong khai cho nguoi doc
+// khac xem (read-only) - day la "nhat ky hoc" chia se, khong phai TODO rieng
+// tu. Chi LICH SU đổi trạng thái (ChecklistItemLog) bi gate boi
+// Document.checklistLogPublic.
+model ChecklistItem {
+  id         String            @id @default(uuid())
+  documentId String
+  document   Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  label      String
+  status     ChecklistStatus   @default(NOT_UNDERSTOOD)
+  note       String? // ghi chu HIEN TAI, sua duoc doc lap voi status
+  orderIndex Int               @default(0)
+  logs       ChecklistItemLog[]
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([documentId, orderIndex])
+}
+
+// 1 dong lich su MOI LAN doi status - note la SNAPSHOT cua ChecklistItem.note
+// tai đúng thoi diem đổi (khong phai note hien tai), de nhat ky giu duoc
+// "luc do minh hieu gi" ngay ca khi note sau nay bi sua tiep. Tu sinh o
+// server trong ChecklistService.updateStatus, khong co endpoint tu ghi rieng.
+model ChecklistItemLog {
+  id              String          @id @default(uuid())
+  checklistItemId String
+  checklistItem   ChecklistItem   @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  toStatus        ChecklistStatus
+  note            String?
+  createdAt       DateTime        @default(now())
+
+  @@index([checklistItemId, createdAt])
+}
+
+// Nhom nhieu Document "cung chu de" trong 1 KnowledgeGroup thanh 1 box rieng
+// trong danh sach bai viet (vien mo nhe + ten nhom tuy chinh) - xem
+// ArticleCard.tsx/WorkspaceMain.tsx o FE. Scope trong DUNG 1 KnowledgeGroup
+// (khong xuyen nhom/workspace) vi UI gop chi hien trong dung 1 list dang xem.
+model DocumentSeries {
+  id               String         @id @default(uuid())
+  knowledgeGroupId String
+  knowledgeGroup   KnowledgeGroup @relation(fields: [knowledgeGroupId], references: [id], onDelete: Cascade)
+  name             String
+  orderIndex       Int            @default(0)
+  documents        Document[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([knowledgeGroupId, orderIndex])
 }

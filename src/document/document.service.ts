@@ -14,8 +14,16 @@ const authorSelect = {
   verified: true,
 } satisfies Prisma.UserSelect;
 
+const seriesSelect = {
+  id: true,
+  name: true,
+} satisfies Prisma.DocumentSeriesSelect;
+
 type DocWithAuthor = Prisma.DocumentGetPayload<{
-  include: { author: { select: typeof authorSelect } };
+  include: {
+    author: { select: typeof authorSelect };
+    series: { select: typeof seriesSelect };
+  };
 }>;
 
 // "đ"/"Đ" khong tach duoc qua NFD (chu cai rieng tieng Viet) - thay tay truoc.
@@ -58,6 +66,17 @@ export class DocumentService {
     await this.groupAccess.assertGroupWriter(dto.knowledgeGroupId, userId);
     const slug = await this.uniqueSlug(userId, dto.title);
     const doc = await this.prisma.$transaction(async (tx) => {
+      // seriesId (neu co) phai thuoc DUNG knowledgeGroupId o tren - tranh gan
+      // nham/co y bai viet vao series cua 1 nhom khac qua sua thang id.
+      if (dto.seriesId) {
+        const series = await tx.documentSeries.findUnique({
+          where: { id: dto.seriesId },
+          select: { knowledgeGroupId: true },
+        });
+        if (!series || series.knowledgeGroupId !== dto.knowledgeGroupId) {
+          throw new NotFoundException(`Series ${dto.seriesId} not found`);
+        }
+      }
       const created = await tx.document.create({
         data: {
           authorId: userId,
@@ -70,8 +89,12 @@ export class DocumentService {
           content: dto.content as Prisma.InputJsonValue,
           tags: dto.tags ?? [],
           isPublished: dto.isPublished ?? true,
+          seriesId: dto.seriesId,
         },
-        include: { author: { select: authorSelect } },
+        include: {
+          author: { select: authorSelect },
+          series: { select: seriesSelect },
+        },
       });
       await tx.knowledgeGroup.update({
         where: { id: dto.knowledgeGroupId },
@@ -102,6 +125,7 @@ export class DocumentService {
       orderBy: [{ isPinned: 'desc' }, { updatedAt: 'desc' }],
       include: {
         author: { select: authorSelect },
+        series: { select: seriesSelect },
         knowledgeGroup: { select: { visibility: true } },
       },
     });
@@ -121,7 +145,10 @@ export class DocumentService {
     const docs = await this.prisma.document.findMany({
       where: { knowledgeGroupId: groupId },
       orderBy: [{ isPinned: 'desc' }, { updatedAt: 'desc' }],
-      include: { author: { select: authorSelect } },
+      include: {
+        author: { select: authorSelect },
+        series: { select: seriesSelect },
+      },
     });
     return docs
       .filter((d) => d.isPublished || d.authorId === viewerId)
@@ -168,6 +195,7 @@ export class DocumentService {
       where: { slug, author: { username } },
       include: {
         author: { select: authorSelect },
+        series: { select: seriesSelect },
         knowledgeGroup: { select: { visibility: true } },
       },
     });
@@ -220,8 +248,12 @@ export class DocumentService {
         content: dto.content as Prisma.InputJsonValue,
         tags: dto.tags,
         isPublished: dto.isPublished,
+        checklistLogPublic: dto.checklistLogPublic,
       },
-      include: { author: { select: authorSelect } },
+      include: {
+        author: { select: authorSelect },
+        series: { select: seriesSelect },
+      },
     });
     return this.toApi(doc, true);
   }
@@ -242,7 +274,10 @@ export class DocumentService {
     const doc = await this.prisma.document.update({
       where: { id: documentId },
       data: { isPinned },
-      include: { author: { select: authorSelect } },
+      include: {
+        author: { select: authorSelect },
+        series: { select: seriesSelect },
+      },
     });
     return this.toApi(doc, true);
   }
@@ -274,6 +309,7 @@ export class DocumentService {
   private toApi(doc: DocWithAuthor, isSelf = false) {
     return {
       id: doc.id,
+      knowledgeGroupId: doc.knowledgeGroupId,
       slug: doc.slug,
       title: doc.title,
       summary: doc.summary,
@@ -287,6 +323,8 @@ export class DocumentService {
       createdAt: doc.createdAt.toISOString(),
       updatedAt: doc.updatedAt.toISOString(),
       isOwner: isSelf,
+      series: doc.series ? { id: doc.series.id, name: doc.series.name } : null,
+      checklistLogPublic: doc.checklistLogPublic,
       author: {
         username: doc.author.username ?? doc.author.id,
         name: doc.author.name,
@@ -301,6 +339,7 @@ export class DocumentService {
   private toApiSummary(doc: DocWithAuthor, isSelf: boolean) {
     return {
       id: doc.id,
+      knowledgeGroupId: doc.knowledgeGroupId,
       slug: doc.slug,
       title: doc.title,
       summary: doc.summary,
@@ -313,6 +352,7 @@ export class DocumentService {
       createdAt: doc.createdAt.toISOString(),
       updatedAt: doc.updatedAt.toISOString(),
       isOwner: isSelf,
+      series: doc.series ? { id: doc.series.id, name: doc.series.name } : null,
       author: {
         username: doc.author.username ?? doc.author.id,
         name: doc.author.name,

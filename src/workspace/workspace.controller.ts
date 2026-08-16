@@ -26,6 +26,14 @@ export class WorkspaceController {
     return this.workspaceService.listByOwnerWithGroups(userId, username);
   }
 
+  // Dat TRUOC moi route "workspaces/:xxx" khac (khong co, nhung phong khi
+  // sau nay them GET workspaces/:id) - tranh loi wildcard-shadowing da tung
+  // gap voi user.controller.ts (xem comment o do).
+  @Get('workspaces/suggested')
+  listSuggested(@CurrentUserId() userId: string) {
+    return this.workspaceService.listSuggested(userId);
+  }
+
   @Post('workspaces')
   create(@CurrentUserId() userId: string, @Body() dto: CreateWorkspaceDto) {
     return this.workspaceService.create(userId, dto);

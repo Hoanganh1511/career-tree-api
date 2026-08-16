@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { SyncGuard } from '../auth/sync.guard';
 import { CurrentUserId } from '../auth/current-user.decorator';
@@ -21,6 +29,24 @@ export class UserController {
   @Post('me/revoke-sessions')
   revokeSessions(@CurrentUserId() userId: string) {
     return this.userService.revokeAllSessions(userId);
+  }
+
+  // PHAI khai bao TRUOC @Get(':username') ben duoi - NestJS khop route theo
+  // dung THU TU khai bao, ':username' la wildcard se "nuot" luon path
+  // "search" neu no dung sau (bi hieu nham la tim profile username="search").
+  @Get('search')
+  search(
+    @CurrentUserId() viewerId: string,
+    @Query('q') q: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.userService.search(
+      viewerId,
+      q ?? '',
+      cursor,
+      limit ? Number(limit) : undefined,
+    );
   }
 
   @Get(':username')

@@ -20,6 +20,9 @@ import { DocumentModule } from './document/document.module';
 import { WorkspaceModule } from './workspace/workspace.module';
 import { KnowledgeGroupModule } from './knowledge-group/knowledge-group.module';
 import { KnowledgeGroupCollaboratorModule } from './knowledge-group-collaborator/knowledge-group-collaborator.module';
+import { SeriesModule } from './series/series.module';
+import { ChecklistModule } from './checklist/checklist.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -42,6 +45,9 @@ import { KnowledgeGroupCollaboratorModule } from './knowledge-group-collaborator
     WorkspaceModule,
     KnowledgeGroupModule,
     KnowledgeGroupCollaboratorModule,
+    SeriesModule,
+    ChecklistModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

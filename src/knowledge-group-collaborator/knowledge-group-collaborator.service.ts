@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { KnowledgeGroupAccessService } from '../common/knowledge-group-access.service';
+import { NotificationService } from '../notification/notification.service';
 import { Prisma } from '../../generated/prisma/client';
 
 const collabUserSelect = {
@@ -20,6 +21,7 @@ export class KnowledgeGroupCollaboratorService {
   constructor(
     private prisma: PrismaService,
     private access: KnowledgeGroupAccessService,
+    private notifications: NotificationService,
   ) {}
 
   // Ap dung cho CA nhom PUBLIC lan PRIVATE - visibility chi gate quyen XEM,
@@ -28,13 +30,14 @@ export class KnowledgeGroupCollaboratorService {
   async requestCollab(userId: string, groupId: string, reason?: string) {
     const group = await this.prisma.knowledgeGroup.findUnique({
       where: { id: groupId },
-      select: { id: true },
+      select: { id: true, workspace: { select: { ownerId: true } } },
     });
     if (!group)
       throw new NotFoundException(`Knowledge group ${groupId} not found`);
 
+    let collab;
     try {
-      return await this.prisma.knowledgeGroupCollaborator.create({
+      collab = await this.prisma.knowledgeGroupCollaborator.create({
         data: { groupId, userId, joinReason: reason, status: 'PENDING' },
       });
     } catch (e) {
@@ -48,6 +51,23 @@ export class KnowledgeGroupCollaboratorService {
       }
       throw e;
     }
+
+    // Bao CHU WORKSPACE (nguoi thuc su duyet duoc, xem assertGroupOwner) -
+    // boc try/catch RIENG: yeu cau cong tac (da tao xong o tren) khong duoc
+    // phep that bai chi vi buoc tao thong bao gap loi.
+    try {
+      await this.notifications.create({
+        recipientId: group.workspace.ownerId,
+        actorId: userId,
+        type: 'GROUP_COLLAB_REQUESTED',
+        groupId,
+        collabId: collab.id,
+      });
+    } catch {
+      // best-effort, xem comment tren
+    }
+
+    return collab;
   }
 
   async leave(userId: string, groupId: string) {
@@ -77,10 +97,24 @@ export class KnowledgeGroupCollaboratorService {
     if (!collab || collab.groupId !== groupId) {
       throw new NotFoundException(`Yêu cầu cộng tác ${collabId} không tồn tại`);
     }
-    return this.prisma.knowledgeGroupCollaborator.update({
+    const updated = await this.prisma.knowledgeGroupCollaborator.update({
       where: { id: collabId },
       data: { status: 'APPROVED' },
     });
+
+    try {
+      await this.notifications.create({
+        recipientId: collab.userId,
+        actorId: ownerId,
+        type: 'GROUP_COLLAB_APPROVED',
+        groupId,
+        collabId,
+      });
+    } catch {
+      // best-effort - xem comment trong requestCollab()
+    }
+
+    return updated;
   }
 
   async reject(ownerId: string, groupId: string, collabId: string) {
@@ -91,9 +125,23 @@ export class KnowledgeGroupCollaboratorService {
     if (!collab || collab.groupId !== groupId) {
       throw new NotFoundException(`Yêu cầu cộng tác ${collabId} không tồn tại`);
     }
-    return this.prisma.knowledgeGroupCollaborator.update({
+    const updated = await this.prisma.knowledgeGroupCollaborator.update({
       where: { id: collabId },
       data: { status: 'REJECTED' },
     });
+
+    try {
+      await this.notifications.create({
+        recipientId: collab.userId,
+        actorId: ownerId,
+        type: 'GROUP_COLLAB_REJECTED',
+        groupId,
+        collabId,
+      });
+    } catch {
+      // best-effort - xem comment trong requestCollab()
+    }
+
+    return updated;
   }
 }

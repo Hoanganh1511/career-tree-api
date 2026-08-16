@@ -38,4 +38,10 @@ export class UpdateDocumentDto {
   @IsOptional()
   @IsBoolean()
   isPublished?: boolean;
+
+  // Bat/tat hien thi LICH SU checklist (ChecklistItemLog) cho nguoi doc khac
+  // - xem comment Document.checklistLogPublic trong schema.prisma.
+  @IsOptional()
+  @IsBoolean()
+  checklistLogPublic?: boolean;
 }

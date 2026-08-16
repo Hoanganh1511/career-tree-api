@@ -28,8 +28,14 @@ export class WorkspaceService {
   // Danh sach Workspace cua 1 user (theo username), MOI Workspace kem san
   // groups (postCount, visibility, viewerCanWrite) - 1 fetch gop cho ca tab
   // "Workspace" cua profile, khong can round-trip rieng cho tung workspace.
-  // Nhom PRIVATE ma viewer khong xem duoc bi LUOC BO hoan toan (khong phai
-  // chi an noi dung), giong cach Document.listByAuthor da lam voi ban nhap.
+  // Nhom PRIVATE VAN duoc tra ve (dang "public directory" - ten/mo ta/postCount
+  // thay duoc, coi nhu 1 GitHub private repo: biet ton tai nhung khong doc
+  // duoc gi khi chua duoc duyet) thay vi LUOC BO hoan toan nhu truoc - de FE
+  // co the hien nut "Yeu cau tham gia" (RequestCollabButton) thay vi group do
+  // hoan toan vo hinh, khong ai xin tham gia duoc vi khong biet no ton tai.
+  // AN TOAN vi noi dung THAT (documents) van duoc chan rieng, nghiem ngat o
+  // DocumentService (assertGroupViewable/filterByGroupVisibility) - endpoint
+  // nay chua bao gio tra ve content, chi metadata cua group.
   async listByOwnerWithGroups(viewerId: string, username: string) {
     const owner = await this.prisma.user.findUnique({
       where: { username },
@@ -58,15 +64,81 @@ export class WorkspaceService {
       collabs.forEach((c) => approvedGroupIds.add(c.groupId));
     }
 
+    const checklistStats = await this.getChecklistStats(allGroupIds);
+
     return workspaces.map((w) => ({
       ...this.toApi(w),
-      groups: w.groups
-        .filter(
-          (g) =>
-            g.visibility === 'PUBLIC' || isSelf || approvedGroupIds.has(g.id),
-        )
-        .map((g) => this.toApiGroup(g, isSelf || approvedGroupIds.has(g.id))),
+      groups: w.groups.map((g) =>
+        this.toApiGroup(
+          g,
+          isSelf || approvedGroupIds.has(g.id),
+          checklistStats.get(g.id),
+        ),
+      ),
     }));
+  }
+
+  // Gop so lieu checklist (tong muc / so muc da hieu) theo TUNG group - dung
+  // cho "cay tri thuc" o FE (canh no/day theo % da hieu). 1 query DUY NHAT
+  // (khong N+1 theo tung group) - ChecklistItem khong co san knowledgeGroupId
+  // truc tiep nen phai join qua Document trong `where`/`select`.
+  private async getChecklistStats(groupIds: string[]) {
+    const stats = new Map<string, { total: number; understood: number }>();
+    if (groupIds.length === 0) return stats;
+
+    const items = await this.prisma.checklistItem.findMany({
+      where: { document: { knowledgeGroupId: { in: groupIds } } },
+      select: { status: true, document: { select: { knowledgeGroupId: true } } },
+    });
+    for (const item of items) {
+      const gid = item.document.knowledgeGroupId;
+      const s = stats.get(gid) ?? { total: 0, understood: 0 };
+      s.total += 1;
+      if (item.status === 'UNDERSTOOD') s.understood += 1;
+      stats.set(gid, s);
+    }
+    return stats;
+  }
+
+  // Goi y workspace tu nhung nguoi VIEWER dang follow (ACTIVE, khong tinh
+  // PENDING) - dung cho strip "Gợi ý từ người bạn theo dõi" o man chon
+  // workspace (FE). Workspace KHONG co field visibility (khac KnowledgeGroup)
+  // nen an toan hien toan bo cho moi followee, khong can loc rieng. Lay 12
+  // workspace CAP NHAT gan day nhat xuyen suot tat ca followee (khong phai
+  // 12 workspace/nguoi) - danh cho 1 strip goi y ngan, khong phai danh sach
+  // day du (khong can cursor pagination).
+  async listSuggested(viewerId: string, limit = 12) {
+    const follows = await this.prisma.userFollow.findMany({
+      where: { followerId: viewerId, status: 'ACTIVE' },
+      select: { followeeId: true },
+    });
+    const followeeIds = follows.map((f) => f.followeeId);
+    if (followeeIds.length === 0) return [];
+
+    const workspaces = await this.prisma.workspace.findMany({
+      where: { ownerId: { in: followeeIds } },
+      orderBy: { updatedAt: 'desc' },
+      take: limit,
+      include: {
+        owner: {
+          select: { id: true, username: true, name: true, avatarUrl: true },
+        },
+        _count: { select: { groups: true } },
+      },
+    });
+
+    return workspaces
+      .filter((w) => w.owner.username) // can username de dieu huong (/workspace/:username/:id)
+      .map((w) => ({
+        ...this.toApi(w),
+        owner: {
+          id: w.owner.id,
+          username: w.owner.username as string,
+          name: w.owner.name,
+          avatarUrl: w.owner.avatarUrl,
+        },
+        groupCount: w._count.groups,
+      }));
   }
 
   async update(userId: string, workspaceId: string, dto: UpdateWorkspaceDto) {
@@ -103,16 +175,27 @@ export class WorkspaceService {
     };
   }
 
-  private toApiGroup(group: KnowledgeGroup, viewerCanWrite: boolean) {
+  private toApiGroup(
+    group: KnowledgeGroup,
+    viewerCanWrite: boolean,
+    checklistStat?: { total: number; understood: number },
+  ) {
     return {
       id: group.id,
       workspaceId: group.workspaceId,
       name: group.name,
       description: group.description,
+      goal: group.goal,
       visibility: group.visibility,
       postCount: group.postCount,
       orderIndex: group.orderIndex,
       viewerCanWrite,
+      // Gop tu tat ca ChecklistItem cua moi Document trong group - dung ve
+      // "canh cay" o FE (KnowledgeTreeCanvas.tsx). Luon tra ve (ke ca group
+      // PRIVATE chua duoc duyet) - CHI la 2 con so tong hop, khong lo noi
+      // dung that (giong postCount).
+      checklistTotal: checklistStat?.total ?? 0,
+      checklistUnderstood: checklistStat?.understood ?? 0,
       // Danh sach nay CHI co trong response cua KnowledgeGroupService (khi
       // drill-down vao 1 workspace cu the) - fetch gop nay chi phuc vu browse
       // nen luon rong, tranh N+1 query khong can thiet o day.

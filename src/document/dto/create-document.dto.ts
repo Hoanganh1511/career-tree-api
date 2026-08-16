@@ -46,4 +46,11 @@ export class CreateDocumentDto {
   @IsOptional()
   @IsBoolean()
   isPublished?: boolean;
+
+  // Gan bai viet vao 1 DocumentSeries co san (nhom "cung chu de") - dung boi
+  // luong "Thêm bài viết cùng chủ đề" o FE. Phai thuoc DUNG knowledgeGroupId
+  // o tren, xem check trong DocumentService.create.
+  @IsOptional()
+  @IsString()
+  seriesId?: string;
 }

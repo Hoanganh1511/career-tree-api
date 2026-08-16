@@ -94,6 +94,7 @@ export class KnowledgeGroupService {
         name: dto.name,
         description: dto.description,
         visibility: dto.visibility,
+        goal: dto.goal as Prisma.InputJsonValue | undefined,
       },
     });
     return this.toApi(group, true);
@@ -117,6 +118,7 @@ export class KnowledgeGroupService {
       workspaceId: group.workspaceId,
       name: group.name,
       description: group.description,
+      goal: group.goal,
       visibility: group.visibility,
       postCount: group.postCount,
       orderIndex: group.orderIndex,
