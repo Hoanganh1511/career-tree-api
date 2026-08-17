@@ -55,7 +55,11 @@ export class ChecklistService {
     return items.map((i) => this.toApi(i));
   }
 
-  async create(userId: string, documentId: string, dto: CreateChecklistItemDto) {
+  async create(
+    userId: string,
+    documentId: string,
+    dto: CreateChecklistItemDto,
+  ) {
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
       select: { authorId: true },
@@ -91,7 +95,11 @@ export class ChecklistService {
   // Doi trang thai - LUON tu sinh 1 dong ChecklistItemLog voi note SNAPSHOT
   // tai thoi diem nay (khong phai lay lai luc doc), giu dung y nghia "nhat
   // ky", khong phai field tu nhap.
-  async updateStatus(userId: string, id: string, dto: UpdateChecklistStatusDto) {
+  async updateStatus(
+    userId: string,
+    id: string,
+    dto: UpdateChecklistStatusDto,
+  ) {
     await this.assertItemAuthor(id, userId);
     const item = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.checklistItem.update({
@@ -122,10 +130,13 @@ export class ChecklistService {
     const item = await this.prisma.checklistItem.findUnique({
       where: { id: itemId },
       select: {
-        document: { select: { id: true, authorId: true, checklistLogPublic: true } },
+        document: {
+          select: { id: true, authorId: true, checklistLogPublic: true },
+        },
       },
     });
-    if (!item) throw new NotFoundException(`Checklist item ${itemId} not found`);
+    if (!item)
+      throw new NotFoundException(`Checklist item ${itemId} not found`);
     await this.assertDocumentViewable(viewerId, item.document.id);
 
     const isSelf = item.document.authorId === viewerId;

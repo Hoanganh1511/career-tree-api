@@ -88,7 +88,10 @@ export class WorkspaceService {
 
     const items = await this.prisma.checklistItem.findMany({
       where: { document: { knowledgeGroupId: { in: groupIds } } },
-      select: { status: true, document: { select: { knowledgeGroupId: true } } },
+      select: {
+        status: true,
+        document: { select: { knowledgeGroupId: true } },
+      },
     });
     for (const item of items) {
       const gid = item.document.knowledgeGroupId;

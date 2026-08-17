@@ -23,6 +23,7 @@ import { KnowledgeGroupCollaboratorModule } from './knowledge-group-collaborator
 import { SeriesModule } from './series/series.module';
 import { ChecklistModule } from './checklist/checklist.module';
 import { NotificationModule } from './notification/notification.module';
+import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { NotificationModule } from './notification/notification.module';
     SeriesModule,
     ChecklistModule,
     NotificationModule,
+    AiAssistantModule,
   ],
   controllers: [AppController],
   providers: [AppService],
