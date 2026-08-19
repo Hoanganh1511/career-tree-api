@@ -17,12 +17,21 @@ const authorSelect = {
 const seriesSelect = {
   id: true,
   name: true,
+  category: true,
 } satisfies Prisma.DocumentSeriesSelect;
+
+// Chi lay status - dung tinh checklistTotal/checklistUnderstood (tien do
+// "Kế hoạch học tập" cua tung bai, xem ArticleChecklist.tsx), khong can label/
+// note/group cho muc dich nay.
+const checklistSelect = {
+  status: true,
+} satisfies Prisma.ChecklistItemSelect;
 
 type DocWithAuthor = Prisma.DocumentGetPayload<{
   include: {
     author: { select: typeof authorSelect };
     series: { select: typeof seriesSelect };
+    checklistItems: { select: typeof checklistSelect };
   };
 }>;
 
@@ -94,6 +103,7 @@ export class DocumentService {
         include: {
           author: { select: authorSelect },
           series: { select: seriesSelect },
+          checklistItems: { select: checklistSelect },
         },
       });
       await tx.knowledgeGroup.update({
@@ -127,6 +137,7 @@ export class DocumentService {
       include: {
         author: { select: authorSelect },
         series: { select: seriesSelect },
+        checklistItems: { select: checklistSelect },
         knowledgeGroup: { select: { visibility: true } },
       },
     });
@@ -149,6 +160,7 @@ export class DocumentService {
       include: {
         author: { select: authorSelect },
         series: { select: seriesSelect },
+        checklistItems: { select: checklistSelect },
       },
     });
     return docs
@@ -197,6 +209,7 @@ export class DocumentService {
       include: {
         author: { select: authorSelect },
         series: { select: seriesSelect },
+        checklistItems: { select: checklistSelect },
         knowledgeGroup: { select: { visibility: true } },
       },
     });
@@ -254,6 +267,7 @@ export class DocumentService {
       include: {
         author: { select: authorSelect },
         series: { select: seriesSelect },
+        checklistItems: { select: checklistSelect },
       },
     });
     await this.groupAccess.recordStudyDay(this.prisma, doc.knowledgeGroupId);
@@ -279,6 +293,7 @@ export class DocumentService {
       include: {
         author: { select: authorSelect },
         series: { select: seriesSelect },
+        checklistItems: { select: checklistSelect },
       },
     });
     return this.toApi(doc, true);
@@ -325,8 +340,18 @@ export class DocumentService {
       createdAt: doc.createdAt.toISOString(),
       updatedAt: doc.updatedAt.toISOString(),
       isOwner: isSelf,
-      series: doc.series ? { id: doc.series.id, name: doc.series.name } : null,
+      series: doc.series
+        ? {
+            id: doc.series.id,
+            name: doc.series.name,
+            category: doc.series.category,
+          }
+        : null,
       checklistLogPublic: doc.checklistLogPublic,
+      checklistTotal: doc.checklistItems.length,
+      checklistUnderstood: doc.checklistItems.filter(
+        (i) => i.status === 'UNDERSTOOD',
+      ).length,
       author: {
         username: doc.author.username ?? doc.author.id,
         name: doc.author.name,
@@ -354,7 +379,17 @@ export class DocumentService {
       createdAt: doc.createdAt.toISOString(),
       updatedAt: doc.updatedAt.toISOString(),
       isOwner: isSelf,
-      series: doc.series ? { id: doc.series.id, name: doc.series.name } : null,
+      series: doc.series
+        ? {
+            id: doc.series.id,
+            name: doc.series.name,
+            category: doc.series.category,
+          }
+        : null,
+      checklistTotal: doc.checklistItems.length,
+      checklistUnderstood: doc.checklistItems.filter(
+        (i) => i.status === 'UNDERSTOOD',
+      ).length,
       author: {
         username: doc.author.username ?? doc.author.id,
         name: doc.author.name,

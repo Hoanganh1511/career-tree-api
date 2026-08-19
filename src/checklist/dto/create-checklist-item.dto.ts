@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ChecklistGroup } from '../../../generated/prisma/client';
 
 export class CreateChecklistItemDto {
   @IsString()
@@ -10,4 +11,10 @@ export class CreateChecklistItemDto {
   @IsString()
   @MaxLength(2000)
   note?: string;
+
+  // Section trong "Ke hoach hoc tap" (xem enum ChecklistGroup trong schema) -
+  // khong truyen -> Prisma dung default OBJECTIVE.
+  @IsOptional()
+  @IsEnum(ChecklistGroup)
+  group?: ChecklistGroup;
 }

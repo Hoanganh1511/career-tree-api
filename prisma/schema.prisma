@@ -529,6 +529,7 @@ model KnowledgeGroup {
   collaborators KnowledgeGroupCollaborator[]
   notifications Notification[]
   studyDays     KnowledgeGroupStudyDay[]
+  objectives    LearningObjective[]
   createdAt     DateTime                     @default(now())
   updatedAt     DateTime                     @updatedAt
 
@@ -666,9 +667,27 @@ model Document {
   @@index([seriesId])
 }
 
+// NOT_UNDERSTOOD/UNDERSTOOD la 2 gia tri GOC (giu nguyen ten de tranh migration
+// rename enum value rui ro) - IN_PROGRESS/NEEDS_REVIEW la 2 trang thai THEM
+// (○ Chua hoc / ◐ Dang hoc / ✓ Da nam / ⚠ Can on, xem ArticleChecklist.tsx).
+// Cac cho tinh progress (knowledge-group.service.ts, workspace.service.ts)
+// van CHI dem UNDERSTOOD la "xong" - IN_PROGRESS/NEEDS_REVIEW khong doi y
+// nghia do.
 enum ChecklistStatus {
   NOT_UNDERSTOOD
+  IN_PROGRESS
   UNDERSTOOD
+  NEEDS_REVIEW
+}
+
+// Nhom 1 muc checklist thuoc ve section nao trong "Ke hoach hoc tap"
+// (ArticleChecklist.tsx) - OBJECTIVE mac dinh (item cu truoc khi co field nay
+// deu la muc "Can nam").
+enum ChecklistGroup {
+  OBJECTIVE
+  RESOURCE
+  PRACTICE
+  ASSESSMENT
 }
 
 // Checklist kien thuc gan tren 1 Document - tac gia liet ke cac topic can
@@ -683,6 +702,7 @@ model ChecklistItem {
   document   Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
   label      String
   status     ChecklistStatus   @default(NOT_UNDERSTOOD)
+  group      ChecklistGroup    @default(OBJECTIVE)
   note       String? // ghi chu HIEN TAI, sua duoc doc lap voi status
   orderIndex Int               @default(0)
   logs       ChecklistItemLog[]
@@ -707,6 +727,49 @@ model ChecklistItemLog {
   @@index([checklistItemId, createdAt])
 }
 
+enum ObjectiveItemType {
+  KNOWLEDGE
+  SKILL
+}
+
+// "Mục tiêu học tập" cua 1 nhom - danh sach NHIEU Objective (vd "1.1 Design
+// secure access to AWS resources"), khac han KnowledgeGroup.goal (1 o
+// rich-text TU DO gan CA nhom, khong lien quan field nay - xem GroupGoalModal.tsx).
+// Moi Objective co cac item phan loai Knowledge (biet)/Skill (lam duoc) -
+// xem enum ObjectiveItemType. Thay the placeholder "Sắp ra mắt" cua muc "Mục
+// tiêu" trong GroupSidebar.tsx.
+model LearningObjective {
+  id               String                  @id @default(uuid())
+  knowledgeGroupId String
+  knowledgeGroup   KnowledgeGroup          @relation(fields: [knowledgeGroupId], references: [id], onDelete: Cascade)
+  title            String
+  description      String?
+  orderIndex       Int                     @default(0)
+  items            LearningObjectiveItem[]
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([knowledgeGroupId, orderIndex])
+}
+
+// 1 muc Knowledge/Skill trong 1 Objective - tai su dung ChecklistStatus (4
+// muc, cung y nghia voi "Kế hoạch học tập" cua bai viet - xem ChecklistItem)
+// thay vi tu 1 enum trang thai rieng.
+model LearningObjectiveItem {
+  id          String            @id @default(uuid())
+  objectiveId String
+  objective   LearningObjective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  type        ObjectiveItemType
+  label       String
+  status      ChecklistStatus   @default(NOT_UNDERSTOOD)
+  note        String? // ghi chu HIEN TAI, dung mo modal rieng giong ChecklistRow
+  orderIndex  Int               @default(0)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([objectiveId, type, orderIndex])
+}
+
 // Nhom nhieu Document "cung chu de" trong 1 KnowledgeGroup thanh 1 box rieng
 // trong danh sach bai viet (vien mo nhe + ten nhom tuy chinh) - xem
 // ArticleCard.tsx/WorkspaceMain.tsx o FE. Scope trong DUNG 1 KnowledgeGroup
@@ -716,6 +779,11 @@ model DocumentSeries {
   knowledgeGroupId String
   knowledgeGroup   KnowledgeGroup @relation(fields: [knowledgeGroupId], references: [id], onDelete: Cascade)
   name             String
+  // Nhan phan loai o TREN series (vd "Networking" cho series "VPC"/"Route 53") -
+  // tuy chon, null = "Chưa phân loại" o FE. Phuc vu cay 2 cap Roadmap/Kien
+  // thuc (category -> series) o man Workspace (thuc chat la KnowledgeGroup)
+  // moi - xem docs/... (khong co migration rieng, chi 1 cot don).
+  category         String?
   orderIndex       Int            @default(0)
   documents        Document[]
   createdAt        DateTime       @default(now())

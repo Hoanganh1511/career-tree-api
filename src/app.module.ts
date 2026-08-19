@@ -22,6 +22,7 @@ import { KnowledgeGroupModule } from './knowledge-group/knowledge-group.module';
 import { KnowledgeGroupCollaboratorModule } from './knowledge-group-collaborator/knowledge-group-collaborator.module';
 import { SeriesModule } from './series/series.module';
 import { ChecklistModule } from './checklist/checklist.module';
+import { ObjectiveModule } from './objective/objective.module';
 import { NotificationModule } from './notification/notification.module';
 import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 
@@ -48,6 +49,7 @@ import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
     KnowledgeGroupCollaboratorModule,
     SeriesModule,
     ChecklistModule,
+    ObjectiveModule,
     NotificationModule,
     AiAssistantModule,
   ],

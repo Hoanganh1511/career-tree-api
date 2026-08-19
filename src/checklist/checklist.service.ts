@@ -77,6 +77,7 @@ export class ChecklistService {
         documentId,
         label: dto.label,
         note: dto.note,
+        group: dto.group,
         orderIndex: (last?.orderIndex ?? -1) + 1,
       },
     });
@@ -162,6 +163,7 @@ export class ChecklistService {
       documentId: item.documentId,
       label: item.label,
       status: item.status,
+      group: item.group,
       note: item.note,
       orderIndex: item.orderIndex,
       createdAt: item.createdAt.toISOString(),

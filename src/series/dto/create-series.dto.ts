@@ -12,6 +12,13 @@ export class CreateSeriesDto {
   @MaxLength(120)
   name!: string;
 
+  // Nhan phan loai TREN series (vd "Networking") - tuy chon, xem comment
+  // DocumentSeries.category trong schema.prisma.
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  category?: string;
+
   // Gop san mot vai bai luc tao - dung cho luong "chon nhieu bai roi gop".
   // Bo trong khi tao tu nut "Thêm bài viết cùng chủ đề" (series chi gan 1
   // bai dau tien qua chinh dto nay tu SeriesController, xem comment o do).

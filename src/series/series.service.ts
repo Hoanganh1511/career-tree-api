@@ -19,7 +19,11 @@ export class SeriesService {
     await this.groupAccess.assertGroupWriter(groupId, userId);
     const series = await this.prisma.$transaction(async (tx) => {
       const created = await tx.documentSeries.create({
-        data: { knowledgeGroupId: groupId, name: dto.name },
+        data: {
+          knowledgeGroupId: groupId,
+          name: dto.name,
+          category: dto.category || null,
+        },
       });
       if (dto.documentIds?.length) {
         await this.assignDocuments(tx, groupId, dto.documentIds, created.id);
@@ -33,7 +37,13 @@ export class SeriesService {
     await this.assertOwnedSeries(id, userId);
     const updated = await this.prisma.documentSeries.update({
       where: { id },
-      data: { name: dto.name, orderIndex: dto.orderIndex },
+      data: {
+        name: dto.name,
+        orderIndex: dto.orderIndex,
+        // "" -> null (xoa phan loai) - khac undefined (khong doi gi, xem
+        // comment tren UpdateSeriesDto.category).
+        category: dto.category === undefined ? undefined : dto.category || null,
+      },
     });
     return this.toApi(updated);
   }
@@ -118,6 +128,7 @@ export class SeriesService {
       id: series.id,
       knowledgeGroupId: series.knowledgeGroupId,
       name: series.name,
+      category: series.category,
       orderIndex: series.orderIndex,
       createdAt: series.createdAt.toISOString(),
       updatedAt: series.updatedAt.toISOString(),
