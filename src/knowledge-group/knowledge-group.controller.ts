@@ -49,4 +49,9 @@ export class KnowledgeGroupController {
   remove(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.groupService.remove(userId, id);
   }
+
+  @Get('knowledge-groups/:id/progress')
+  getProgress(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.groupService.getProgress(userId, id);
+  }
 }

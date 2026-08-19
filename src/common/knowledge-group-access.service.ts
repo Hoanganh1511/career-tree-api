@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '../../generated/prisma/client';
 
 @Injectable()
 export class KnowledgeGroupAccessService {
@@ -73,5 +74,23 @@ export class KnowledgeGroupAccessService {
     if (!group || group.workspace.ownerId !== userId) {
       throw new NotFoundException(`Knowledge group ${groupId} not found`);
     }
+  }
+
+  // Ghi nhan "hom nay nhom nay co hoat dong that" (tao/sua bai, doi trang
+  // thai checklist) - upsert 1 dong/ngay (@@unique chan trung), goi duoc ca
+  // trong 1 $transaction dang chay (truyen tx) lan doc lap (truyen
+  // this.prisma tu noi goi). Dung cho GroupProgressWidget.tsx (so ngay hoc/
+  // streak).
+  async recordStudyDay(
+    tx: Prisma.TransactionClient | PrismaService,
+    knowledgeGroupId: string,
+  ): Promise<void> {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    await tx.knowledgeGroupStudyDay.upsert({
+      where: { knowledgeGroupId_date: { knowledgeGroupId, date: today } },
+      create: { knowledgeGroupId, date: today },
+      update: {},
+    });
   }
 }

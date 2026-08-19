@@ -505,11 +505,20 @@ model KnowledgeGroup {
   workspace     Workspace                    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   name          String
   description   String?
+  // Ten export cua 1 icon lucide-react (vd "BookOpen") - FE chon qua
+  // GroupIconPicker.tsx tu 1 danh sach curated (khong phai raw emoji glyph
+  // nhu Workspace.icon), null = dung icon fallback (Folder) o FE.
+  icon          String?
   // "Muc tieu" cua nhom - Tiptap JSON, schema HAN CHE giong Document.overview
   // (chi bold/italic/bulletList/orderedList). Hien qua modal rieng o FE
   // (GroupGoalModal.tsx), chi chu workspace duoc sua (assertGroupOwner, giong
   // update() cac field khac cua nhom).
   goal          Json?
+  // Ten/ma chung chi MUC TIEU cua nhom (vd "AWS Solutions Architect"/"SAA-C03") -
+  // hien trong GroupProgressWidget.tsx (tab Tong quan khi doc bai), sua qua
+  // GroupCertSettingsModal.tsx. Ca 2 null = chua thiet lap, widget an di.
+  certName      String?
+  certCode      String?
   visibility    KnowledgeGroupVisibility     @default(PRIVATE)
   // Cache so bai viet - dong bo trong $transaction khi Document duoc tao/xoa
   // trong nhom nay, giong pattern Community.memberCount.
@@ -519,10 +528,27 @@ model KnowledgeGroup {
   series        DocumentSeries[]
   collaborators KnowledgeGroupCollaborator[]
   notifications Notification[]
+  studyDays     KnowledgeGroupStudyDay[]
   createdAt     DateTime                     @default(now())
   updatedAt     DateTime                     @updatedAt
 
   @@index([workspaceId, orderIndex])
+}
+
+// 1 dong = 1 NGAY (khong gio) nhom co hoat dong that (tao/sua bai, doi
+// trang thai checklist - xem KnowledgeGroupAccessService.recordStudyDay).
+// @db.Date (chi ngay) de @@unique gop dung theo ngay, khong bi nhan doi neu
+// co nhieu hoat dong trong cung 1 ngay. Dung tinh "so ngay hoc"/"streak" cho
+// GroupProgressWidget.tsx.
+model KnowledgeGroupStudyDay {
+  id               String         @id @default(uuid())
+  knowledgeGroupId String
+  knowledgeGroup   KnowledgeGroup @relation(fields: [knowledgeGroupId], references: [id], onDelete: Cascade)
+  date             DateTime       @db.Date
+  createdAt        DateTime       @default(now())
+
+  @@unique([knowledgeGroupId, date])
+  @@index([knowledgeGroupId])
 }
 
 enum KnowledgeGroupCollabStatus {

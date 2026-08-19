@@ -13,6 +13,30 @@ const collabUserSelect = {
   email: true,
 } satisfies Prisma.UserSelect;
 
+// Dem streak (so ngay LIEN TUC) lui tu HOM NAY - neu hom nay CHUA co hoat
+// dong thi thu tu HOM QUA (streak van "song" neu hom qua co, chi la chua noi
+// dai them hom nay), khong co ca 2 -> 0. `datesDesc` da @db.Date (UTC
+// midnight) nen so sanh qua ISO day-key la du, khong can chinh timezone.
+function computeStreak(datesDesc: Date[]): number {
+  if (datesDesc.length === 0) return 0;
+  const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+  const daySet = new Set(datesDesc.map(dayKey));
+
+  const cursor = new Date();
+  cursor.setUTCHours(0, 0, 0, 0);
+  if (!daySet.has(dayKey(cursor))) {
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+    if (!daySet.has(dayKey(cursor))) return 0;
+  }
+
+  let streak = 0;
+  while (daySet.has(dayKey(cursor))) {
+    streak += 1;
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return streak;
+}
+
 @Injectable()
 export class KnowledgeGroupService {
   constructor(
@@ -31,6 +55,7 @@ export class KnowledgeGroupService {
         workspaceId,
         name: dto.name,
         description: dto.description,
+        icon: dto.icon,
         visibility: dto.visibility ?? 'PRIVATE',
       },
     });
@@ -93,6 +118,9 @@ export class KnowledgeGroupService {
       data: {
         name: dto.name,
         description: dto.description,
+        icon: dto.icon,
+        certName: dto.certName,
+        certCode: dto.certCode,
         visibility: dto.visibility,
         goal: dto.goal as Prisma.InputJsonValue | undefined,
       },
@@ -104,6 +132,42 @@ export class KnowledgeGroupService {
     await this.access.assertGroupOwner(groupId, userId);
     // Cascade xoa documents ben trong qua onDelete: Cascade trong schema.
     await this.prisma.knowledgeGroup.delete({ where: { id: groupId } });
+  }
+
+  // So lieu cho GroupProgressWidget.tsx (FE) - certName/certCode/postCount
+  // KHONG lap lai o day, FE da co san qua ApiKnowledgeGroup (findForWorkspace).
+  async getProgress(viewerId: string, groupId: string) {
+    await this.access.assertGroupViewable(groupId, viewerId);
+
+    const [topicCount, studyDays, checklistItems] = await Promise.all([
+      this.prisma.documentSeries.count({
+        where: { knowledgeGroupId: groupId },
+      }),
+      this.prisma.knowledgeGroupStudyDay.findMany({
+        where: { knowledgeGroupId: groupId },
+        select: { date: true },
+        orderBy: { date: 'desc' },
+      }),
+      this.prisma.checklistItem.findMany({
+        where: { document: { knowledgeGroupId: groupId } },
+        select: { status: true },
+      }),
+    ]);
+
+    const understood = checklistItems.filter(
+      (i) => i.status === 'UNDERSTOOD',
+    ).length;
+    const progressPercent =
+      checklistItems.length > 0
+        ? Math.round((understood / checklistItems.length) * 100)
+        : 0;
+
+    return {
+      progressPercent,
+      totalStudyDays: studyDays.length,
+      topicCount,
+      currentStreak: computeStreak(studyDays.map((d) => d.date)),
+    };
   }
 
   private toApi(
@@ -118,6 +182,9 @@ export class KnowledgeGroupService {
       workspaceId: group.workspaceId,
       name: group.name,
       description: group.description,
+      icon: group.icon,
+      certName: group.certName,
+      certCode: group.certCode,
       goal: group.goal,
       visibility: group.visibility,
       postCount: group.postCount,

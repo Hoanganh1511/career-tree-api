@@ -113,6 +113,13 @@ export class ChecklistService {
           note: updated.note,
         },
       });
+      // ChecklistItem khong co knowledgeGroupId truc tiep - phai lookup qua
+      // Document de ghi nhan "ngay hoc" cho dung nhom.
+      const doc = await tx.document.findUniqueOrThrow({
+        where: { id: updated.documentId },
+        select: { knowledgeGroupId: true },
+      });
+      await this.groupAccess.recordStudyDay(tx, doc.knowledgeGroupId);
       return updated;
     });
     return this.toApi(item);

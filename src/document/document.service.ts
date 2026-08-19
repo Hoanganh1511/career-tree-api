@@ -100,6 +100,7 @@ export class DocumentService {
         where: { id: dto.knowledgeGroupId },
         data: { postCount: { increment: 1 } },
       });
+      await this.groupAccess.recordStudyDay(tx, dto.knowledgeGroupId);
       return created;
     });
     return this.toApi(doc);
@@ -255,6 +256,7 @@ export class DocumentService {
         series: { select: seriesSelect },
       },
     });
+    await this.groupAccess.recordStudyDay(this.prisma, doc.knowledgeGroupId);
     return this.toApi(doc, true);
   }
 
