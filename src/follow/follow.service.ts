@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 import { Prisma } from '../../generated/prisma/client';
 
 @Injectable()
@@ -16,7 +17,10 @@ export class FollowService {
     avatarUrl: true,
     verified: true,
   } satisfies Prisma.UserSelect;
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationService,
+  ) {}
 
   //   Câu hỏi cần trả lời: "có block giữa 2 người này không ?"
   //   Cần biết ai block ai, hoặc cả 2 chiều trong 1 query thay vì 2 query riêng
@@ -53,9 +57,10 @@ export class FollowService {
       throw new NotFoundException(`User ${followeeUsername} not found`);
     }
 
+    let follow;
     try {
-      return await this.prisma.$transaction(async (tx) => {
-        const follow = await tx.userFollow.create({
+      follow = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.userFollow.create({
           data: { followerId, followeeId: followee.id, status: 'ACTIVE' },
         });
         await tx.user.update({
@@ -68,7 +73,7 @@ export class FollowService {
           where: { id: followee.id },
           data: { followerCount: { increment: 1 } },
         });
-        return follow;
+        return created;
       });
     } catch (e) {
       if (
@@ -79,6 +84,21 @@ export class FollowService {
       }
       throw e;
     }
+
+    // Best-effort - xem comment tuong tu trong
+    // KnowledgeGroupCollaboratorService.requestCollab(): follow (da tao xong
+    // o tren) khong duoc phep that bai chi vi buoc tao thong bao gap loi.
+    try {
+      await this.notifications.create({
+        recipientId: followee.id,
+        actorId: followerId,
+        type: 'FOLLOW',
+      });
+    } catch {
+      // best-effort
+    }
+
+    return follow;
   }
 
   async unfollowUser(followerId: string, followeeUsername: string) {

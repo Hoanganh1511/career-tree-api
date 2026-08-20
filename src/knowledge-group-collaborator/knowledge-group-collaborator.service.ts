@@ -114,6 +114,12 @@ export class KnowledgeGroupCollaboratorService {
       // best-effort - xem comment trong requestCollab()
     }
 
+    try {
+      await this.notifications.deleteRequestNotification(ownerId, collabId);
+    } catch {
+      // best-effort - xem comment trong requestCollab()
+    }
+
     return updated;
   }
 
@@ -138,6 +144,12 @@ export class KnowledgeGroupCollaboratorService {
         groupId,
         collabId,
       });
+    } catch {
+      // best-effort - xem comment trong requestCollab()
+    }
+
+    try {
+      await this.notifications.deleteRequestNotification(ownerId, collabId);
     } catch {
       // best-effort - xem comment trong requestCollab()
     }

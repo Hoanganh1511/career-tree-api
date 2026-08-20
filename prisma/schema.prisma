@@ -592,6 +592,8 @@ enum NotificationType {
   // Gui toi NGUOI XIN khi yeu cau duoc duyet/tu choi.
   GROUP_COLLAB_APPROVED
   GROUP_COLLAB_REJECTED
+  // Gui toi NGUOI DUOC FOLLOW khi co nguoi moi follow (xem FollowService).
+  FOLLOW
 }
 
 // He thong thong bao - hien CHI phuc vu luong "yeu cau cong tac nhom kien

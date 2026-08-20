@@ -114,6 +114,23 @@ export class NotificationService {
     return { markedAt: new Date().toISOString() };
   }
 
+  // Goi tu approve()/reject() (KnowledgeGroupCollaboratorService) SAU khi da
+  // xu ly xong 1 yeu cau cong tac - xoa han thong bao GROUP_COLLAB_REQUESTED
+  // goc thay vi chi markRead, vi FE quyet dinh co hien nut Duyet/Tu choi hay
+  // khong dua vao `type` (list() filter='requests' cung loc theo type), KHONG
+  // dua vao readAt - markRead thoi se khong an duoc nut, thong bao "con treo"
+  // mai voi nut bam du da xu ly roi. Best-effort (khong throw) - goi tu noi
+  // da boc try/catch rieng.
+  async deleteRequestNotification(recipientId: string, collabId: string) {
+    await this.prisma.notification.deleteMany({
+      where: {
+        recipientId,
+        collabId,
+        type: NotificationType.GROUP_COLLAB_REQUESTED,
+      },
+    });
+  }
+
   private toApi(n: NotificationWithRelations) {
     return {
       id: n.id,
