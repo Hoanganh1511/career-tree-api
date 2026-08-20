@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationType, Prisma } from '../../generated/prisma/client';
+import { NotificationGateway } from './notification.gateway';
 
 const notificationInclude = {
   actor: {
@@ -23,7 +24,10 @@ type NotificationWithRelations = Prisma.NotificationGetPayload<{
 
 @Injectable()
 export class NotificationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private gateway: NotificationGateway,
+  ) {}
 
   // Goi tu CAC SERVICE KHAC (vd KnowledgeGroupCollaboratorService) khi co
   // hanh dong can bao cho 1 user - KHONG expose qua controller rieng, chi la
@@ -38,7 +42,7 @@ export class NotificationService {
     collabId?: string | null;
   }) {
     if (params.actorId && params.actorId === params.recipientId) return null;
-    return this.prisma.notification.create({
+    const created = await this.prisma.notification.create({
       data: {
         recipientId: params.recipientId,
         actorId: params.actorId ?? null,
@@ -46,7 +50,22 @@ export class NotificationService {
         groupId: params.groupId ?? null,
         collabId: params.collabId ?? null,
       },
+      include: notificationInclude,
     });
+
+    // Day real-time toi client dang online cua recipient (neu co) - best-effort,
+    // khong duoc phep lam hong viec tao thong bao chi vi loi socket.
+    try {
+      this.gateway.emitToUser(
+        params.recipientId,
+        'notification:new',
+        this.toApi(created),
+      );
+    } catch {
+      // best-effort
+    }
+
+    return created;
   }
 
   // filter 'requests' = CHI yeu cau cong tac dang cho DUYET (tab "Yêu cầu"

@@ -4,3 +4,7 @@
 export const TOKEN_ISSUER = 'enggo-web';
 export const AUDIENCE_API = 'career-tree-api';
 export const AUDIENCE_SYNC = 'career-tree-api/sync';
+// Token rieng cho ket noi WebSocket (NotificationGateway) - khac AUDIENCE_API
+// vi socket duoc trinh duyet ket noi TRUC TIEP (khong qua Next.js server nhu
+// apiFetch), token nay se nam trong tay client lau hon 1 request thuong.
+export const AUDIENCE_SOCKET = 'career-tree-api/socket';
