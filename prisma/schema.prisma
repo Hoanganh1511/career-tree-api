@@ -55,6 +55,8 @@ model User {
   knowledgeGroupCollaborations KnowledgeGroupCollaborator[]
   notificationsReceived        Notification[]               @relation("NotificationRecipient")
   notificationsActedOn         Notification[]               @relation("NotificationActor")
+  conversationParticipations   ConversationParticipant[]
+  messagesSent                 Message[]
 }
 
 // Feed Trang chu - truoc day 100% mock o frontend (enggo/src/content/
@@ -799,4 +801,47 @@ model DocumentSeries {
   updatedAt        DateTime       @updatedAt
 
   @@index([knowledgeGroupId, orderIndex])
+}
+
+// Chat 1-1 (MVP - xem docs khao sat truoc khi lam, chua co gi ca truoc dot
+// nay). Model tach rieng Conversation/ConversationParticipant/Message (thay
+// vi 1 cot participantIds tren Conversation) de mo rong duoc len group chat
+// sau nay ma khong can migration lai, du hien tai ChatService chi cho phep
+// dung 2 participant. `updatedAt` tren Conversation bump moi khi co Message
+// moi (xem ChatService.sendMessage) - dung de sap xep danh sach hoi thoai
+// theo "moi nhat len dau" ma khong can join/aggregate Message moi lan list.
+model Conversation {
+  id           String                     @id @default(uuid())
+  participants ConversationParticipant[]
+  messages     Message[]
+  createdAt    DateTime                   @default(now())
+  updatedAt    DateTime                   @updatedAt
+}
+
+// lastReadAt: moc "da doc den dau" cua TUNG nguoi trong hoi thoai - unreadCount
+// tinh bang dem Message.createdAt > lastReadAt (null = chua doc gi, tat ca
+// deu tinh la chua doc).
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String       @id @default(uuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content        String
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId, createdAt])
 }

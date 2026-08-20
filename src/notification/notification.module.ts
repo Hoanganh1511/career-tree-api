@@ -6,6 +6,9 @@ import { NotificationGateway } from './notification.gateway';
 @Module({
   providers: [NotificationService, NotificationGateway],
   controllers: [NotificationController],
-  exports: [NotificationService],
+  // NotificationGateway export them - ChatModule tai dung CUNG 1 gateway/ket
+  // noi WebSocket nay de emit "chat:message" (xem ChatService), khong mo
+  // gateway rieng.
+  exports: [NotificationService, NotificationGateway],
 })
 export class NotificationModule {}

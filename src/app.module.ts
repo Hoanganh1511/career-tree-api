@@ -25,6 +25,7 @@ import { ChecklistModule } from './checklist/checklist.module';
 import { ObjectiveModule } from './objective/objective.module';
 import { NotificationModule } from './notification/notification.module';
 import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
     ObjectiveModule,
     NotificationModule,
     AiAssistantModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
