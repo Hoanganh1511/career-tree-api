@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: career-tree-api
+    runtime: node
+    plan: free
+    branch: master
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: pnpm start:prod
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: INTERNAL_API_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
