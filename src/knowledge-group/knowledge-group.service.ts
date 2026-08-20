@@ -123,6 +123,7 @@ export class KnowledgeGroupService {
         certCode: dto.certCode,
         visibility: dto.visibility,
         goal: dto.goal as Prisma.InputJsonValue | undefined,
+        roadmap: dto.roadmap as Prisma.InputJsonValue | undefined,
       },
     });
     return this.toApi(group, true);
@@ -186,6 +187,7 @@ export class KnowledgeGroupService {
       certName: group.certName,
       certCode: group.certCode,
       goal: group.goal,
+      roadmap: group.roadmap,
       visibility: group.visibility,
       postCount: group.postCount,
       orderIndex: group.orderIndex,

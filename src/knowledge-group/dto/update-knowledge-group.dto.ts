@@ -49,4 +49,10 @@ export class UpdateKnowledgeGroupDto {
   @IsOptional()
   @IsObject()
   goal?: Record<string, unknown>;
+
+  // "Lo trinh hoc tap" - Tiptap JSON, schema DAY DU (getPostExtensions() o
+  // frontend) - hien o GroupRoadmapSection.tsx, KHAC goal (schema han che).
+  @IsOptional()
+  @IsObject()
+  roadmap?: Record<string, unknown>;
 }

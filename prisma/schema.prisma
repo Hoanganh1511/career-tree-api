@@ -514,6 +514,13 @@ model KnowledgeGroup {
   // (GroupGoalModal.tsx), chi chu workspace duoc sua (assertGroupOwner, giong
   // update() cac field khac cua nhom).
   goal          Json?
+  // "Lo trinh hoc tap" - Tiptap JSON, schema DAY DU (getPostExtensions(),
+  // giong Document.content - can heading/nested list de note outline dang
+  // cum/topic/nhieu truong long nhau), KHAC goal (schema han che, chi 1 doan
+  // ngan). Hien o "trang" rieng GroupRoadmapSection.tsx (muc "Lộ trình"
+  // trong GroupSidebar.tsx), CHI chu workspace duoc sua (assertGroupOwner,
+  // giong goal).
+  roadmap       Json?
   // Ten/ma chung chi MUC TIEU cua nhom (vd "AWS Solutions Architect"/"SAA-C03") -
   // hien trong GroupProgressWidget.tsx (tab Tong quan khi doc bai), sua qua
   // GroupCertSettingsModal.tsx. Ca 2 null = chua thiet lap, widget an di.
