@@ -137,7 +137,19 @@ export class ChatService {
     const apiMessage = this.toMessageApi(message);
     if (other) {
       try {
-        this.gateway.emitToUser(other.userId, 'chat:message', apiMessage);
+        // Gui kem senderName/senderAvatarUrl CHI trong payload emit (khong
+        // them vao apiMessage tra ve qua REST, cung khong luu DB) - FE dung
+        // 2 field nay de hien browser Notification ("X: noi dung") ma khong
+        // can fetch them thong tin nguoi gui.
+        const sender = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true, avatarUrl: true },
+        });
+        this.gateway.emitToUser(other.userId, 'chat:message', {
+          ...apiMessage,
+          senderName: sender?.name ?? null,
+          senderAvatarUrl: sender?.avatarUrl ?? null,
+        });
       } catch {
         // best-effort - xem comment tuong tu trong NotificationService.create()
       }
