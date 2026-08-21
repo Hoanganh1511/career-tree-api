@@ -26,6 +26,8 @@ import { ObjectiveModule } from './objective/objective.module';
 import { NotificationModule } from './notification/notification.module';
 import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 import { ChatModule } from './chat/chat.module';
+import { UploadModule } from './upload/upload.module';
+import { GifModule } from './gif/gif.module';
 
 @Module({
   imports: [
@@ -54,6 +56,8 @@ import { ChatModule } from './chat/chat.module';
     NotificationModule,
     AiAssistantModule,
     ChatModule,
+    UploadModule,
+    GifModule,
   ],
   controllers: [AppController],
   providers: [AppService],

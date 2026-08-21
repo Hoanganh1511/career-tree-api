@@ -46,7 +46,7 @@ export class ChatController {
     @Param('id') id: string,
     @Body() dto: SendMessageDto,
   ) {
-    return this.chatService.sendMessage(userId, id, dto.content);
+    return this.chatService.sendMessage(userId, id, dto);
   }
 
   @Post(':id/read')

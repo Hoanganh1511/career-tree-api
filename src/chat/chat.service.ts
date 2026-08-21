@@ -5,7 +5,8 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationGateway } from '../notification/notification.gateway';
-import { Prisma } from '../../generated/prisma/client';
+import { MessageType, Prisma } from '../../generated/prisma/client';
+import { SendMessageDto } from './dto/send-message.dto';
 
 const miniUserSelect = {
   id: true,
@@ -14,6 +15,23 @@ const miniUserSelect = {
   avatarUrl: true,
   verified: true,
 } satisfies Prisma.UserSelect;
+
+const pollInclude = {
+  poll: {
+    include: { options: { include: { votes: { select: { userId: true } } } } },
+  },
+} satisfies Prisma.MessageInclude;
+
+type MessageWithPoll = Prisma.MessageGetPayload<{
+  include: typeof pollInclude;
+}>;
+
+const ATTACHMENT_TYPES: MessageType[] = [
+  MessageType.IMAGE,
+  MessageType.FILE,
+  MessageType.VOICE,
+  MessageType.GIF,
+];
 
 // Chat 1-1 MVP - xem comment tren model Conversation trong schema.prisma.
 // Tai dung NotificationGateway (cung 1 ket noi WebSocket, chi them event
@@ -95,6 +113,7 @@ export class ChatService {
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       orderBy: { createdAt: 'desc' },
+      include: pollInclude,
     });
 
     const hasMore = rows.length > limit;
@@ -103,38 +122,83 @@ export class ChatService {
     return {
       // Dao lai thanh thu tu thoi gian tang dan (cu -> moi) - FE render tin
       // nhan tu tren xuong duoi, "load them" (cursor) se noi THEM VAO DAU.
-      items: page.map((m) => this.toMessageApi(m)).reverse(),
+      items: page.map((m) => this.toMessageApi(m, userId)).reverse(),
       nextCursor: hasMore ? page[page.length - 1].id : null,
     };
   }
 
-  async sendMessage(userId: string, conversationId: string, content: string) {
-    const participant = await this.assertParticipant(userId, conversationId);
+  // Doi TEXT/IMAGE/FILE/VOICE/GIF/POLL deu di qua day - kiem tra cheo cac
+  // field theo `type` (class-validator khong lam duoc dieu kien nhu vay).
+  private validatePayload(dto: SendMessageDto) {
+    const type = dto.type ?? MessageType.TEXT;
+    if (type === MessageType.TEXT && !dto.content?.trim()) {
+      throw new BadRequestException('Tin nhắn văn bản không được để trống');
+    }
+    if (ATTACHMENT_TYPES.includes(type) && !dto.attachmentUrl) {
+      throw new BadRequestException(`Tin nhắn loại ${type} cần attachmentUrl`);
+    }
+    if (type === MessageType.POLL && !dto.poll) {
+      throw new BadRequestException('Thiếu dữ liệu bình chọn');
+    }
+  }
 
-    const [message] = await this.prisma.$transaction([
-      this.prisma.message.create({
-        data: { conversationId, senderId: userId, content },
-      }),
+  async sendMessage(
+    userId: string,
+    conversationId: string,
+    dto: SendMessageDto,
+  ) {
+    const participant = await this.assertParticipant(userId, conversationId);
+    this.validatePayload(dto);
+    const type = dto.type ?? MessageType.TEXT;
+
+    const message = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.message.create({
+        data: {
+          conversationId,
+          senderId: userId,
+          type,
+          content: dto.content,
+          attachmentUrl: dto.attachmentUrl,
+          attachmentName: dto.attachmentName,
+          attachmentMimeType: dto.attachmentMimeType,
+          attachmentSize: dto.attachmentSize,
+          durationSeconds: dto.durationSeconds,
+          ...(type === MessageType.POLL && dto.poll
+            ? {
+                poll: {
+                  create: {
+                    question: dto.poll.question,
+                    options: {
+                      create: dto.poll.options.map((o) => ({ text: o.text })),
+                    },
+                  },
+                },
+              }
+            : {}),
+        },
+        include: pollInclude,
+      });
       // Bump updatedAt de hoi thoai nay noi len dau danh sach - @updatedAt
       // tu dong cap nhat tren MOI loi goi update(), khong can truyen data.
-      this.prisma.conversation.update({
+      await tx.conversation.update({
         where: { id: conversationId },
         data: {},
-      }),
+      });
       // Nguoi gui coi nhu da doc den tin nhan cua chinh minh - tranh badge
       // unread tu tang len chinh minh sau khi gui.
-      this.prisma.conversationParticipant.update({
+      await tx.conversationParticipant.update({
         where: { id: participant.id },
         data: { lastReadAt: new Date() },
-      }),
-    ]);
+      });
+      return created;
+    });
 
     const other = await this.prisma.conversationParticipant.findFirst({
       where: { conversationId, userId: { not: userId } },
       select: { userId: true },
     });
 
-    const apiMessage = this.toMessageApi(message);
+    const apiMessage = this.toMessageApi(message, userId);
     if (other) {
       try {
         // Gui kem senderName/senderAvatarUrl CHI trong payload emit (khong
@@ -146,7 +210,7 @@ export class ChatService {
           select: { name: true, avatarUrl: true },
         });
         this.gateway.emitToUser(other.userId, 'chat:message', {
-          ...apiMessage,
+          ...this.toMessageApi(message, other.userId),
           senderName: sender?.name ?? null,
           senderAvatarUrl: sender?.avatarUrl ?? null,
         });
@@ -156,6 +220,70 @@ export class ChatService {
     }
 
     return apiMessage;
+  }
+
+  // Single-choice: bam lai DUNG option da chon -> bo vote (toggle off), bam
+  // option KHAC -> chuyen vote sang option do. Chi 1 vote CON SONG/nguoi/poll.
+  async votePoll(userId: string, pollId: string, optionId: string) {
+    const poll = await this.prisma.poll.findUnique({
+      where: { id: pollId },
+      include: {
+        message: { select: { conversationId: true } },
+        options: { include: { votes: { select: { userId: true } } } },
+      },
+    });
+    if (!poll) {
+      throw new NotFoundException(`Poll ${pollId} not found`);
+    }
+    await this.assertParticipant(userId, poll.message.conversationId);
+
+    const option = poll.options.find((o) => o.id === optionId);
+    if (!option) {
+      throw new NotFoundException(`Poll option ${optionId} not found`);
+    }
+    const alreadyVotedThisOption = option.votes.some(
+      (v) => v.userId === userId,
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.pollVote.deleteMany({
+        where: { userId, pollOption: { pollId } },
+      });
+      if (!alreadyVotedThisOption) {
+        await tx.pollVote.create({ data: { pollOptionId: optionId, userId } });
+      }
+    });
+
+    const other = await this.prisma.conversationParticipant.findFirst({
+      where: {
+        conversationId: poll.message.conversationId,
+        userId: { not: userId },
+      },
+      select: { userId: true },
+    });
+    if (other) {
+      try {
+        this.gateway.emitToUser(
+          other.userId,
+          'chat:poll-update',
+          await this.getPollTally(pollId, other.userId),
+        );
+      } catch {
+        // best-effort
+      }
+    }
+
+    return this.getPollTally(pollId, userId);
+  }
+
+  private async getPollTally(pollId: string, viewerId: string) {
+    const poll = await this.prisma.poll.findUniqueOrThrow({
+      where: { id: pollId },
+      include: {
+        options: { include: { votes: { select: { userId: true } } } },
+      },
+    });
+    return this.toPollApi(poll, viewerId);
   }
 
   async markRead(userId: string, conversationId: string) {
@@ -205,6 +333,7 @@ export class ChatService {
         this.prisma.message.findFirst({
           where: { conversationId },
           orderBy: { createdAt: 'desc' },
+          include: pollInclude,
         }),
       ]);
 
@@ -227,24 +356,49 @@ export class ChatService {
             verified: otherParticipant.user.verified,
           }
         : null,
-      lastMessage: lastMessage ? this.toMessageApi(lastMessage) : null,
+      lastMessage: lastMessage
+        ? this.toMessageApi(lastMessage, viewerId)
+        : null,
       unreadCount: unread,
       updatedAt: conversation.updatedAt.toISOString(),
     };
   }
 
-  private toMessageApi(m: {
-    id: string;
-    conversationId: string;
-    senderId: string;
-    content: string;
-    createdAt: Date;
-  }) {
+  private toPollApi(
+    poll: Prisma.PollGetPayload<{
+      include: {
+        options: { include: { votes: { select: { userId: true } } } };
+      };
+    }>,
+    viewerId: string,
+  ) {
+    return {
+      id: poll.id,
+      messageId: poll.messageId,
+      question: poll.question,
+      options: poll.options.map((o) => ({
+        id: o.id,
+        text: o.text,
+        voteCount: o.votes.length,
+        votedByMe: o.votes.some((v) => v.userId === viewerId),
+      })),
+      totalVotes: poll.options.reduce((sum, o) => sum + o.votes.length, 0),
+    };
+  }
+
+  private toMessageApi(m: MessageWithPoll, viewerId: string) {
     return {
       id: m.id,
       conversationId: m.conversationId,
       senderId: m.senderId,
+      type: m.type,
       content: m.content,
+      attachmentUrl: m.attachmentUrl,
+      attachmentName: m.attachmentName,
+      attachmentMimeType: m.attachmentMimeType,
+      attachmentSize: m.attachmentSize,
+      durationSeconds: m.durationSeconds,
+      poll: m.poll ? this.toPollApi(m.poll, viewerId) : null,
       createdAt: m.createdAt.toISOString(),
     };
   }

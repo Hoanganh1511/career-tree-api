@@ -57,6 +57,7 @@ model User {
   notificationsActedOn         Notification[]               @relation("NotificationActor")
   conversationParticipations   ConversationParticipant[]
   messagesSent                 Message[]
+  pollVotes                    PollVote[]
 }
 
 // Feed Trang chu - truoc day 100% mock o frontend (enggo/src/content/
@@ -834,14 +835,74 @@ model ConversationParticipant {
   @@index([userId])
 }
 
+// TEXT: content bat buoc (nhu cu). Cac loai con lai: content la caption
+// TUY CHON, du lieu chinh nam o attachment* (IMAGE/FILE/VOICE/GIF) hoac
+// quan he `poll` (POLL) - xem ChatService.sendMessage.
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  VOICE
+  GIF
+  POLL
+}
+
 model Message {
   id             String       @id @default(uuid())
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   senderId       String
   sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  content        String
-  createdAt      DateTime     @default(now())
+  type           MessageType  @default(TEXT)
+  content        String?
+  // IMAGE/FILE/VOICE/GIF dung chung 4 field nay - upload that di qua
+  // UploadService (AWS S3), xem uploads.module.ts. GIF: attachmentUrl la link
+  // Giphy, khong upload len S3.
+  attachmentUrl      String?
+  attachmentName     String?
+  attachmentMimeType String?
+  attachmentSize     Int?
+  // Chi VOICE dung - do dai ban ghi am (giay), FE hien "0:42" tren bubble.
+  durationSeconds    Int?
+  poll               Poll?
+  createdAt          DateTime     @default(now())
 
   @@index([conversationId, createdAt])
+}
+
+// 1-1 voi Message (type = POLL) - cau hoi + danh sach option, KHONG cho sua
+// sau khi tao (giong tin nhan thuong).
+model Poll {
+  id        String       @id @default(uuid())
+  messageId String       @unique
+  message   Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  question  String
+  options   PollOption[]
+  createdAt DateTime     @default(now())
+}
+
+model PollOption {
+  id     String     @id @default(uuid())
+  pollId String
+  poll   Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  text   String
+  votes  PollVote[]
+
+  @@index([pollId])
+}
+
+// Luon single-choice cho MVP (khong co allowMultiple) - PollService dam bao
+// 1 nguoi chi co toi da 1 vote CON SONG trong toan bo poll (xoa vote cu truoc
+// khi tao vote moi neu doi lua chon), @@unique chi de chan double-click tren
+// CUNG 1 option.
+model PollVote {
+  id           String     @id @default(uuid())
+  pollOptionId String
+  pollOption   PollOption @relation(fields: [pollOptionId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@unique([pollOptionId, userId])
+  @@index([userId])
 }
