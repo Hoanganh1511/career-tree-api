@@ -1,7 +1,16 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
+import { UpdateConversationSettingsDto } from './dto/update-conversation-settings.dto';
 import { CurrentUserId } from '../auth/current-user.decorator';
 
 @Controller('conversations')
@@ -59,8 +68,31 @@ export class ChatController {
     return this.chatService.sendMessage(userId, id, dto);
   }
 
+  @Post(':id/messages/:messageId/recall')
+  recallMessage(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Param('messageId') messageId: string,
+  ) {
+    return this.chatService.recallMessage(userId, id, messageId);
+  }
+
   @Post(':id/read')
   markRead(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.chatService.markRead(userId, id);
+  }
+
+  @Post(':id/mark-unread')
+  markUnread(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.chatService.markUnread(userId, id);
+  }
+
+  @Patch(':id/settings')
+  updateSettings(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateConversationSettingsDto,
+  ) {
+    return this.chatService.updateSettings(userId, id, dto);
   }
 }

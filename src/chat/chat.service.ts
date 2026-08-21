@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -7,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationGateway } from '../notification/notification.gateway';
 import { MessageType, Prisma } from '../../generated/prisma/client';
 import { SendMessageDto } from './dto/send-message.dto';
+import { UpdateConversationSettingsDto } from './dto/update-conversation-settings.dto';
 
 const miniUserSelect = {
   id: true,
@@ -16,15 +18,29 @@ const miniUserSelect = {
   verified: true,
 } satisfies Prisma.UserSelect;
 
-const pollInclude = {
+const messageInclude = {
   poll: {
     include: { options: { include: { votes: { select: { userId: true } } } } },
   },
+  reactions: { select: { userId: true, emoji: true } },
+  // Chi lay 1 lop preview - reply-toi-reply van hoat dong (moi Message chi
+  // tro thang toi ban goc), khong can du du lieu day du cua tin nhan goc.
+  replyTo: {
+    select: {
+      id: true,
+      senderId: true,
+      type: true,
+      content: true,
+      attachmentName: true,
+      isRecalled: true,
+    },
+  },
 } satisfies Prisma.MessageInclude;
 
-type MessageWithPoll = Prisma.MessageGetPayload<{
-  include: typeof pollInclude;
+type MessageWithRelations = Prisma.MessageGetPayload<{
+  include: typeof messageInclude;
 }>;
+type ReactionRow = { userId: string; emoji: string };
 
 const ATTACHMENT_TYPES: MessageType[] = [
   MessageType.IMAGE,
@@ -113,7 +129,7 @@ export class ChatService {
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       orderBy: { createdAt: 'desc' },
-      include: pollInclude,
+      include: messageInclude,
     });
 
     const hasMore = rows.length > limit;
@@ -139,7 +155,7 @@ export class ChatService {
       },
       orderBy: { createdAt: 'desc' },
       take: 50,
-      include: pollInclude,
+      include: messageInclude,
     });
     return rows.map((m) => this.toMessageApi(m, userId));
   }
@@ -168,6 +184,20 @@ export class ChatService {
     this.validatePayload(dto);
     const type = dto.type ?? MessageType.TEXT;
 
+    // reply chi hop le neu tin nhan goc nam TRONG CUNG hoi thoai - bo qua
+    // (khong throw) neu replyToId tro sai cho, tranh chan gui tin vi 1 tham
+    // chieu khong quan trong.
+    let replyToId: string | undefined;
+    if (dto.replyToId) {
+      const replyTarget = await this.prisma.message.findUnique({
+        where: { id: dto.replyToId },
+        select: { conversationId: true },
+      });
+      if (replyTarget?.conversationId === conversationId) {
+        replyToId = dto.replyToId;
+      }
+    }
+
     const message = await this.prisma.$transaction(async (tx) => {
       const created = await tx.message.create({
         data: {
@@ -180,6 +210,7 @@ export class ChatService {
           attachmentMimeType: dto.attachmentMimeType,
           attachmentSize: dto.attachmentSize,
           durationSeconds: dto.durationSeconds,
+          replyToId,
           ...(type === MessageType.POLL && dto.poll
             ? {
                 poll: {
@@ -193,7 +224,7 @@ export class ChatService {
               }
             : {}),
         },
-        include: pollInclude,
+        include: messageInclude,
       });
       // Bump updatedAt de hoi thoai nay noi len dau danh sach - @updatedAt
       // tu dong cap nhat tren MOI loi goi update(), khong can truyen data.
@@ -237,6 +268,183 @@ export class ChatService {
     }
 
     return apiMessage;
+  }
+
+  // Chi nguoi gui thu hoi duoc tin cua CHINH minh. Giu nguyen row (khong xoa
+  // that) de khong pha vo thu tu/reply chain - xoa sach content/attachment,
+  // FE dua vao isRecalled de hien "Tin nhắn đã được thu hồi".
+  async recallMessage(
+    userId: string,
+    conversationId: string,
+    messageId: string,
+  ) {
+    await this.assertParticipant(userId, conversationId);
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+    });
+    if (!message || message.conversationId !== conversationId) {
+      throw new NotFoundException(`Message ${messageId} not found`);
+    }
+    if (message.senderId !== userId) {
+      throw new ForbiddenException(
+        'Chỉ có thể thu hồi tin nhắn của chính mình',
+      );
+    }
+
+    const updated = await this.prisma.message.update({
+      where: { id: messageId },
+      data: {
+        isRecalled: true,
+        content: null,
+        attachmentUrl: null,
+        attachmentName: null,
+        attachmentMimeType: null,
+        attachmentSize: null,
+        durationSeconds: null,
+      },
+      include: messageInclude,
+    });
+
+    const other = await this.prisma.conversationParticipant.findFirst({
+      where: { conversationId, userId: { not: userId } },
+      select: { userId: true },
+    });
+    if (other) {
+      try {
+        this.gateway.emitToUser(
+          other.userId,
+          'chat:message-updated',
+          this.toMessageApi(updated, other.userId),
+        );
+      } catch {
+        // best-effort
+      }
+    }
+
+    return this.toMessageApi(updated, userId);
+  }
+
+  // 1 nguoi CHI co toi da 1 reaction/tin nhan - goi lai voi emoji khac se
+  // GHI DE (upsert), khong tao them dong. Dung chung 1 helper broadcast cho
+  // ca react va bo react.
+  async reactToMessage(userId: string, messageId: string, emoji: string) {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      select: { conversationId: true },
+    });
+    if (!message) {
+      throw new NotFoundException(`Message ${messageId} not found`);
+    }
+    await this.assertParticipant(userId, message.conversationId);
+
+    await this.prisma.messageReaction.upsert({
+      where: { messageId_userId: { messageId, userId } },
+      create: { messageId, userId, emoji },
+      update: { emoji },
+    });
+
+    return this.broadcastReactionUpdate(
+      userId,
+      message.conversationId,
+      messageId,
+    );
+  }
+
+  async removeReaction(userId: string, messageId: string) {
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+      select: { conversationId: true },
+    });
+    if (!message) {
+      throw new NotFoundException(`Message ${messageId} not found`);
+    }
+    await this.assertParticipant(userId, message.conversationId);
+
+    await this.prisma.messageReaction.deleteMany({
+      where: { messageId, userId },
+    });
+
+    return this.broadcastReactionUpdate(
+      userId,
+      message.conversationId,
+      messageId,
+    );
+  }
+
+  private async broadcastReactionUpdate(
+    userId: string,
+    conversationId: string,
+    messageId: string,
+  ) {
+    const reactions = await this.prisma.messageReaction.findMany({
+      where: { messageId },
+      select: { userId: true, emoji: true },
+    });
+
+    const other = await this.prisma.conversationParticipant.findFirst({
+      where: { conversationId, userId: { not: userId } },
+      select: { userId: true },
+    });
+    if (other) {
+      try {
+        this.gateway.emitToUser(other.userId, 'chat:reaction-update', {
+          messageId,
+          reactions: this.toReactionSummary(reactions, other.userId),
+        });
+      } catch {
+        // best-effort
+      }
+    }
+
+    return {
+      messageId,
+      reactions: this.toReactionSummary(reactions, userId),
+    };
+  }
+
+  // Cai dat RIENG cua nguoi goi ve hoi thoai nay - khong doi xung (xem
+  // comment tren model ConversationParticipant).
+  async updateSettings(
+    userId: string,
+    conversationId: string,
+    dto: UpdateConversationSettingsDto,
+  ) {
+    const participant = await this.assertParticipant(userId, conversationId);
+    const updated = await this.prisma.conversationParticipant.update({
+      where: { id: participant.id },
+      data: {
+        ...(dto.isFavorite !== undefined ? { isFavorite: dto.isFavorite } : {}),
+        ...(dto.isMuted !== undefined ? { isMuted: dto.isMuted } : {}),
+        ...(dto.isRestricted !== undefined
+          ? { isRestricted: dto.isRestricted }
+          : {}),
+      },
+    });
+    return {
+      isFavorite: updated.isFavorite,
+      isMuted: updated.isMuted,
+      isRestricted: updated.isRestricted,
+    };
+  }
+
+  // Lui lastReadAt ve NGAY TRUOC tin nhan CUOI CUNG cua nguoi kia (khong dat
+  // han ve null - se khien unreadCount tinh lai TU DAU ca hoi thoai, ra so
+  // lon vo ly) - unreadCount se ra dung 1, giong hanh vi "Mark as unread"
+  // cua Messenger.
+  async markUnread(userId: string, conversationId: string) {
+    const participant = await this.assertParticipant(userId, conversationId);
+    const lastFromOther = await this.prisma.message.findFirst({
+      where: { conversationId, senderId: { not: userId } },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    if (!lastFromOther) return { unreadCount: 0 };
+
+    await this.prisma.conversationParticipant.update({
+      where: { id: participant.id },
+      data: { lastReadAt: new Date(lastFromOther.createdAt.getTime() - 1) },
+    });
+    return { unreadCount: 1 };
   }
 
   // Single-choice: bam lai DUNG option da chon -> bo vote (toggle off), bam
@@ -369,7 +577,7 @@ export class ChatService {
         this.prisma.message.findFirst({
           where: { conversationId },
           orderBy: { createdAt: 'desc' },
-          include: pollInclude,
+          include: messageInclude,
         }),
       ]);
 
@@ -404,6 +612,10 @@ export class ChatService {
       // "chat:read" (xem markRead o tren) de hien "Da xem" ma khong can
       // fetch lai summary sau moi lan nguoi kia doc tin.
       otherLastReadAt: otherParticipant?.lastReadAt?.toISOString() ?? null,
+      // Cai dat RIENG cua viewerId (khong doi xung) - xem updateSettings.
+      isFavorite: viewerParticipant?.isFavorite ?? false,
+      isMuted: viewerParticipant?.isMuted ?? false,
+      isRestricted: viewerParticipant?.isRestricted ?? false,
     };
   }
 
@@ -429,19 +641,75 @@ export class ChatService {
     };
   }
 
-  private toMessageApi(m: MessageWithPoll, viewerId: string) {
+  // Dung chung style "[Nhãn]" voi formatMessagePreview.ts o frontend (preview
+  // trong danh sach hoi thoai/browser notification) - o day danh rieng cho
+  // khung reply-quote trong bubble, chi can 1 dong ngan gon.
+  private formatReplyPreview(m: {
+    type: MessageType;
+    content: string | null;
+    attachmentName: string | null;
+  }): string {
+    switch (m.type) {
+      case MessageType.IMAGE:
+        return '[Hình ảnh]';
+      case MessageType.GIF:
+        return '[GIF]';
+      case MessageType.FILE:
+        return `[Tệp] ${m.attachmentName ?? ''}`.trim();
+      case MessageType.VOICE:
+        return '[Tin nhắn thoại]';
+      case MessageType.POLL:
+        return '[Bình chọn]';
+      default:
+        return m.content ?? '';
+    }
+  }
+
+  private toReactionSummary(reactions: ReactionRow[], viewerId: string) {
+    const byEmoji = new Map<
+      string,
+      { emoji: string; count: number; reactedByMe: boolean }
+    >();
+    for (const r of reactions) {
+      const entry = byEmoji.get(r.emoji) ?? {
+        emoji: r.emoji,
+        count: 0,
+        reactedByMe: false,
+      };
+      entry.count += 1;
+      if (r.userId === viewerId) entry.reactedByMe = true;
+      byEmoji.set(r.emoji, entry);
+    }
+    return Array.from(byEmoji.values());
+  }
+
+  private toMessageApi(m: MessageWithRelations, viewerId: string) {
+    // Tin da thu hoi: xoa sach noi dung/attachment/poll o TANG API (khong
+    // chi dua vao DB da xoa - phong truong hop client cache ban cu).
     return {
       id: m.id,
       conversationId: m.conversationId,
       senderId: m.senderId,
       type: m.type,
-      content: m.content,
-      attachmentUrl: m.attachmentUrl,
-      attachmentName: m.attachmentName,
-      attachmentMimeType: m.attachmentMimeType,
-      attachmentSize: m.attachmentSize,
-      durationSeconds: m.durationSeconds,
-      poll: m.poll ? this.toPollApi(m.poll, viewerId) : null,
+      content: m.isRecalled ? null : m.content,
+      attachmentUrl: m.isRecalled ? null : m.attachmentUrl,
+      attachmentName: m.isRecalled ? null : m.attachmentName,
+      attachmentMimeType: m.isRecalled ? null : m.attachmentMimeType,
+      attachmentSize: m.isRecalled ? null : m.attachmentSize,
+      durationSeconds: m.isRecalled ? null : m.durationSeconds,
+      poll: m.isRecalled || !m.poll ? null : this.toPollApi(m.poll, viewerId),
+      isRecalled: m.isRecalled,
+      replyTo: m.replyTo
+        ? {
+            id: m.replyTo.id,
+            senderId: m.replyTo.senderId,
+            type: m.replyTo.type,
+            preview: m.replyTo.isRecalled
+              ? 'Tin nhắn đã được thu hồi'
+              : this.formatReplyPreview(m.replyTo),
+          }
+        : null,
+      reactions: this.toReactionSummary(m.reactions, viewerId),
       createdAt: m.createdAt.toISOString(),
     };
   }

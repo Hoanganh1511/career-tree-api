@@ -58,6 +58,7 @@ model User {
   conversationParticipations   ConversationParticipant[]
   messagesSent                 Message[]
   pollVotes                    PollVote[]
+  messageReactions             MessageReaction[]
 }
 
 // Feed Trang chu - truoc day 100% mock o frontend (enggo/src/content/
@@ -821,7 +822,10 @@ model Conversation {
 
 // lastReadAt: moc "da doc den dau" cua TUNG nguoi trong hoi thoai - unreadCount
 // tinh bang dem Message.createdAt > lastReadAt (null = chua doc gi, tat ca
-// deu tinh la chua doc).
+// deu tinh la chua doc). isFavorite/isMuted/isRestricted la cai dat RIENG
+// cua TUNG nguoi ve hoi thoai nay (khong doi xung - toi tat thong bao khong
+// lam nguoi kia bi tat theo), nen nam tren participant row chu khong phai
+// Conversation.
 model ConversationParticipant {
   id             String       @id @default(uuid())
   conversationId String
@@ -829,6 +833,12 @@ model ConversationParticipant {
   userId         String
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   lastReadAt     DateTime?
+  isFavorite     Boolean      @default(false)
+  isMuted        Boolean      @default(false)
+  // "Han che" o pham vi MVP = tat thong bao/toast + hien mo trong danh sach,
+  // KHONG lam day du co che "hop thu yeu cau an" cua Instagram (doi hoi
+  // hang doi rieng, nguoi bi han che khong biet - ngoai pham vi yeu cau).
+  isRestricted   Boolean      @default(false)
   createdAt      DateTime     @default(now())
 
   @@unique([conversationId, userId])
@@ -865,9 +875,38 @@ model Message {
   // Chi VOICE dung - do dai ban ghi am (giay), FE hien "0:42" tren bubble.
   durationSeconds    Int?
   poll               Poll?
-  createdAt          DateTime     @default(now())
+  // Reply/quote - tro toi 1 Message KHAC trong CUNG hoi thoai (khong validate
+  // o schema, ChatService tu kiem tra). SetNull khi tin goc bi xoa/thu hoi de
+  // khong lam vo chuoi reply (con lai la "tin nhan da bi xoa" o phia FE dua
+  // vao replyTo null + replyToId con gia tri... thuc te KHONG xoa cung Message
+  // - xem isRecalled, nen truong hop SetNull hiem xay ra tren thuc te).
+  replyToId String?
+  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies   Message[] @relation("MessageReplies")
+  // Thu hoi (unsend) - CHI nguoi gui thu hoi duoc tin cua chinh minh. Giu
+  // nguyen row (khong xoa that) de khong pha vo thu tu/reply chain - FE hien
+  // "Tin nhắn đã được thu hồi" thay vi content/attachment that.
+  isRecalled Boolean         @default(false)
+  reactions  MessageReaction[]
+  createdAt  DateTime        @default(now())
 
   @@index([conversationId, createdAt])
+}
+
+// 1 nguoi CHI co toi da 1 reaction/tin nhan (giong Messenger/Zalo, khong
+// phai kieu Discord nhieu emoji chong nhau) - doi emoji = ghi de (upsert),
+// khong tao them dong moi.
+model MessageReaction {
+  id        String   @id @default(uuid())
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String
+  createdAt DateTime @default(now())
+
+  @@unique([messageId, userId])
+  @@index([messageId])
 }
 
 // 1-1 voi Message (type = POLL) - cau hoi + danh sach option, KHONG cho sua

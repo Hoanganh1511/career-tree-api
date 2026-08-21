@@ -77,4 +77,8 @@ export class SendMessageDto {
   @Type(() => PollInputDto)
   @IsOptional()
   poll?: PollInputDto;
+
+  @IsString()
+  @IsOptional()
+  replyToId?: string;
 }
