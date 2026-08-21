@@ -1,13 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { AUDIENCE_SOCKET, TOKEN_ISSUER } from '../auth/token-audience';
+import { PrismaService } from '../prisma/prisma.service';
 
 // Danh sach origin duoc phep ket noi socket - CORS rieng cho WebSocket (khac
 // HTTP thuong, xem main.ts khong co enableCors vi HTTP luon di qua Next.js
@@ -47,7 +51,10 @@ export class NotificationGateway
   @WebSocketServer()
   server!: Server;
 
-  constructor(private jwt: JwtService) {
+  constructor(
+    private jwt: JwtService,
+    private prisma: PrismaService,
+  ) {
     // Log 1 lan luc boot - cach nhanh nhat de kiem tra tren Render xem
     // FRONTEND_URL da duoc set dung production origin hay chua (thieu bien
     // nay -> chi allow localhost:3000 -> moi ket noi tu production bi CORS).
@@ -98,6 +105,31 @@ export class NotificationGateway
 
   isOnline(userId: string): boolean {
     return this.onlineCounts.has(userId);
+  }
+
+  // Trang thai tam thoi (KHONG luu DB) - forward ngay cho nguoi con lai trong
+  // hoi thoai. Kiem tra CA HAI chieu thanh vien (nguoi gui va nguoi nhan) qua
+  // 1 query duy nhat de tranh 1 user gui "dang go" cho hoi thoai ho khong
+  // thuoc ve. FE tu debounce/throttle luc emit, gateway khong can rate-limit
+  // rieng (tan suat da thap san tu phia client).
+  @SubscribeMessage('chat:typing')
+  async handleTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: { conversationId?: string },
+  ) {
+    const userId = (client as AuthedSocket).data.userId;
+    const conversationId = payload?.conversationId;
+    if (!userId || !conversationId) return;
+
+    const participants = await this.prisma.conversationParticipant.findMany({
+      where: { conversationId },
+      select: { userId: true },
+    });
+    if (!participants.some((p) => p.userId === userId)) return;
+    const other = participants.find((p) => p.userId !== userId);
+    if (!other) return;
+
+    this.emitToUser(other.userId, 'chat:typing', { conversationId, userId });
   }
 
   // Goi tu NotificationService.create() ngay sau khi tao xong 1 thong bao -

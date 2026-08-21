@@ -305,11 +305,30 @@ export class ChatService {
 
   async markRead(userId: string, conversationId: string) {
     const participant = await this.assertParticipant(userId, conversationId);
+    const readAt = new Date();
     await this.prisma.conversationParticipant.update({
       where: { id: participant.id },
-      data: { lastReadAt: new Date() },
+      data: { lastReadAt: readAt },
     });
-    return { readAt: new Date().toISOString() };
+
+    const other = await this.prisma.conversationParticipant.findFirst({
+      where: { conversationId, userId: { not: userId } },
+      select: { userId: true },
+    });
+    if (other) {
+      try {
+        // Bao real-time cho nguoi con lai de hien "Da xem" ngay, khong can
+        // doi ho reload/fetch lai conversation summary.
+        this.gateway.emitToUser(other.userId, 'chat:read', {
+          conversationId,
+          readAt: readAt.toISOString(),
+        });
+      } catch {
+        // best-effort
+      }
+    }
+
+    return { readAt: readAt.toISOString() };
   }
 
   async unreadCount(userId: string) {
@@ -381,6 +400,10 @@ export class ChatService {
         : null,
       unreadCount: unread,
       updatedAt: conversation.updatedAt.toISOString(),
+      // Snapshot tai thoi diem fetch - FE cap nhat real-time qua socket event
+      // "chat:read" (xem markRead o tren) de hien "Da xem" ma khong can
+      // fetch lai summary sau moi lan nguoi kia doc tin.
+      otherLastReadAt: otherParticipant?.lastReadAt?.toISOString() ?? null,
     };
   }
 
