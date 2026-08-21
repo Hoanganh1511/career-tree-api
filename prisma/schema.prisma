@@ -858,7 +858,12 @@ enum MessageType {
 }
 
 model Message {
-  id             String       @id @default(uuid())
+  // ULID (khong dung uuid()) - sinh o app (ChatService.sendMessage) de id tu
+  // sap xep theo thoi gian, dung lam cursor phan trang xem tin nhan cu
+  // (orderBy: id thay vi createdAt - id la unique + sortable, tranh dung
+  // createdAt lam cursor field vi co the trung nhau khi nhieu tin gui cung
+  // luc, gay phan trang khong on dinh/lap-sot tin).
+  id             String       @id
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   senderId       String
@@ -889,8 +894,17 @@ model Message {
   isRecalled Boolean         @default(false)
   reactions  MessageReaction[]
   createdAt  DateTime        @default(now())
+  // Cot GENERATED (STORED) o DB - Postgres tu tinh lai moi khi `content` doi,
+  // KHONG ghi tu Prisma (Unsupported = Prisma bo qua field nay khi build
+  // query thuong, chi truy van duoc qua $queryRaw). Xem migration
+  // "message_search_vector" de biet bieu thuc sinh gia tri (to_tsvector
+  // config "simple" + unaccent) va docs/chat-search-architecture.md de biet
+  // ly do chon huong nay.
+  searchVector Unsupported("tsvector")?
 
   @@index([conversationId, createdAt])
+  // Ho tro cursor pagination trong listMessages (orderBy: id, cursor: { id }).
+  @@index([conversationId, id])
 }
 
 // 1 nguoi CHI co toi da 1 reaction/tin nhan (giong Messenger/Zalo, khong

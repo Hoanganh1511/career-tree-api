@@ -4,11 +4,23 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { monotonicFactory } from 'ulid';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationGateway } from '../notification/notification.gateway';
 import { MessageType, Prisma } from '../../generated/prisma/client';
 import { SendMessageDto } from './dto/send-message.dto';
 import { UpdateConversationSettingsDto } from './dto/update-conversation-settings.dto';
+
+// Chan client xin limit qua lon (vd 99999) khi chua co rate-limit o tang
+// global (@nestjs/throttler) - xem listMessages().
+const MAX_MESSAGES_PAGE_SIZE = 100;
+
+// monotonicFactory (khong dung ulid() truc tiep) - dam bao id sinh ra trong
+// CUNG 1ms van tang dan nghiem ngat (ulid() thuong se random phan cuoi khi
+// trung timestamp), can thiet vi id dong vai tro ca PK lan cursor sap xep -
+// 2 tin gui sat nhau (vd nguoi dung gui lien tuc) khong duoc phep dung id
+// dan den thu tu phan trang khong xac dinh.
+const genMessageId = monotonicFactory();
 
 const miniUserSelect = {
   id: true,
@@ -18,7 +30,10 @@ const miniUserSelect = {
   verified: true,
 } satisfies Prisma.UserSelect;
 
-const messageInclude = {
+// Export - ChatSearchService (context-quanh-1-tin-nhan) tai dung include +
+// toMessageApi() nay de tra ve DUNG shape ApiChatMessage day du (poll/
+// reactions/replyTo), thay vi tu ghep lai include rieng.
+export const messageInclude = {
   poll: {
     include: { options: { include: { votes: { select: { userId: true } } } } },
   },
@@ -37,7 +52,7 @@ const messageInclude = {
   },
 } satisfies Prisma.MessageInclude;
 
-type MessageWithRelations = Prisma.MessageGetPayload<{
+export type MessageWithRelations = Prisma.MessageGetPayload<{
   include: typeof messageInclude;
 }>;
 type ReactionRow = { userId: string; emoji: string };
@@ -120,20 +135,26 @@ export class ChatService {
     userId: string,
     conversationId: string,
     cursor?: string,
-    limit = 30,
+    limit = 20,
   ) {
     await this.assertParticipant(userId, conversationId);
+    // Cham tran limit client truyen len (vd limit=99999) - khong co
+    // throttler o tang global, chan abuse ngay tai day.
+    const take = Math.min(Math.max(limit, 1), MAX_MESSAGES_PAGE_SIZE);
 
     const rows = await this.prisma.message.findMany({
       where: { conversationId },
-      take: limit + 1,
+      take: take + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      orderBy: { createdAt: 'desc' },
+      // orderBy PHAI trung field voi cursor (id) de phan trang on dinh - id
+      // la ULID (sortable theo thoi gian sinh), createdAt truoc day co the
+      // trung nhau giua nhieu tin gui gan nhu cung luc.
+      orderBy: { id: 'desc' },
       include: messageInclude,
     });
 
-    const hasMore = rows.length > limit;
-    const page = hasMore ? rows.slice(0, limit) : rows;
+    const hasMore = rows.length > take;
+    const page = hasMore ? rows.slice(0, take) : rows;
 
     return {
       // Dao lai thanh thu tu thoi gian tang dan (cu -> moi) - FE render tin
@@ -141,23 +162,6 @@ export class ChatService {
       items: page.map((m) => this.toMessageApi(m, userId)).reverse(),
       nextCursor: hasMore ? page[page.length - 1].id : null,
     };
-  }
-
-  // Tim tin nhan CU trong 1 hoi thoai - chi khop tren `content` (van ban),
-  // IMAGE/FILE/VOICE/GIF khong co gi de tim trong noi dung, POLL tim theo
-  // caption neu co (khong tim theo cau hoi/option - gio han pham vi MVP).
-  async searchMessages(userId: string, conversationId: string, query: string) {
-    await this.assertParticipant(userId, conversationId);
-    const rows = await this.prisma.message.findMany({
-      where: {
-        conversationId,
-        content: { contains: query, mode: 'insensitive' },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-      include: messageInclude,
-    });
-    return rows.map((m) => this.toMessageApi(m, userId));
   }
 
   // Doi TEXT/IMAGE/FILE/VOICE/GIF/POLL deu di qua day - kiem tra cheo cac
@@ -201,6 +205,7 @@ export class ChatService {
     const message = await this.prisma.$transaction(async (tx) => {
       const created = await tx.message.create({
         data: {
+          id: genMessageId(),
           conversationId,
           senderId: userId,
           type,
@@ -683,7 +688,9 @@ export class ChatService {
     return Array.from(byEmoji.values());
   }
 
-  private toMessageApi(m: MessageWithRelations, viewerId: string) {
+  // public - ChatSearchService.getMessageContext() tai dung ham nay de tra
+  // ve dung shape ApiChatMessage (xem export messageInclude o dau file).
+  toMessageApi(m: MessageWithRelations, viewerId: string) {
     // Tin da thu hoi: xoa sach noi dung/attachment/poll o TANG API (khong
     // chi dua vao DB da xoa - phong truong hop client cache ban cu).
     return {
