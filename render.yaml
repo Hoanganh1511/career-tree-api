@@ -15,3 +15,22 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Origin(s) duoc phep ket noi WebSocket (xem notification.gateway.ts) -
+      # THIEU bien nay la nguyen nhan pho bien nhat cua loi CORS tren socket
+      # o production (mac dinh chi allow http://localhost:3000). Dat dung
+      # origin production cua enggo (vd https://career-tree.vercel.app),
+      # nhieu origin cach nhau boi dau phay, KHONG co dau "/" cuoi.
+      - key: FRONTEND_URL
+        sync: false
+      # Upload dinh kem chat (anh/file/ghi am) len S3 - xem src/upload/.
+      - key: AWS_REGION
+        sync: false
+      - key: AWS_S3_BUCKET
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      # GIF picker trong composer chat - xem src/gif/.
+      - key: GIPHY_API_KEY
+        sync: false

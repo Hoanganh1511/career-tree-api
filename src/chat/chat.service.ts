@@ -127,6 +127,23 @@ export class ChatService {
     };
   }
 
+  // Tim tin nhan CU trong 1 hoi thoai - chi khop tren `content` (van ban),
+  // IMAGE/FILE/VOICE/GIF khong co gi de tim trong noi dung, POLL tim theo
+  // caption neu co (khong tim theo cau hoi/option - gio han pham vi MVP).
+  async searchMessages(userId: string, conversationId: string, query: string) {
+    await this.assertParticipant(userId, conversationId);
+    const rows = await this.prisma.message.findMany({
+      where: {
+        conversationId,
+        content: { contains: query, mode: 'insensitive' },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: pollInclude,
+    });
+    return rows.map((m) => this.toMessageApi(m, userId));
+  }
+
   // Doi TEXT/IMAGE/FILE/VOICE/GIF/POLL deu di qua day - kiem tra cheo cac
   // field theo `type` (class-validator khong lam duoc dieu kien nhu vay).
   private validatePayload(dto: SendMessageDto) {
@@ -354,6 +371,9 @@ export class ChatService {
             name: otherParticipant.user.name,
             avatarUrl: otherParticipant.user.avatarUrl,
             verified: otherParticipant.user.verified,
+            // Snapshot tai thoi diem fetch - FE tu cap nhat real-time qua
+            // socket event "presence:update" (xem NotificationGateway).
+            online: this.gateway.isOnline(otherParticipant.user.id),
           }
         : null,
       lastMessage: lastMessage

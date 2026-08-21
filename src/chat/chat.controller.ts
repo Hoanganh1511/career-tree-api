@@ -25,6 +25,16 @@ export class ChatController {
     return this.chatService.createOrGetConversation(userId, dto.username);
   }
 
+  @Get(':id/messages/search')
+  searchMessages(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Query('q') q?: string,
+  ) {
+    if (!q?.trim()) return [];
+    return this.chatService.searchMessages(userId, id, q.trim());
+  }
+
   @Get(':id/messages')
   listMessages(
     @CurrentUserId() userId: string,
