@@ -13,9 +13,7 @@ import { AUDIENCE_SOCKET, TOKEN_ISSUER } from '../auth/token-audience';
 // server, khong bao gio tu trinh duyet - socket thi NGUOC LAI, trinh duyet
 // ket noi THANG toi day nen bat buoc phai co CORS). FRONTEND_URL cho phep
 // nhieu origin cach nhau boi dau phay (vd domain Vercel + localhost dev).
-const allowedOrigins = (
-  process.env.FRONTEND_URL ?? 'http://localhost:3000'
-)
+const allowedOrigins = (process.env.FRONTEND_URL ?? 'http://localhost:3000')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean);

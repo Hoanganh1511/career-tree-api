@@ -11,7 +11,9 @@ import { CreateObjectiveItemDto } from './dto/create-objective-item.dto';
 import { UpdateObjectiveItemDto } from './dto/update-objective-item.dto';
 import { UpdateObjectiveItemStatusDto } from './dto/update-objective-item-status.dto';
 
-type ObjectiveWithItems = LearningObjective & { items: LearningObjectiveItem[] };
+type ObjectiveWithItems = LearningObjective & {
+  items: LearningObjectiveItem[];
+};
 
 @Injectable()
 export class ObjectiveService {
@@ -68,7 +70,11 @@ export class ObjectiveService {
     await this.prisma.learningObjective.delete({ where: { id } });
   }
 
-  async addItem(userId: string, objectiveId: string, dto: CreateObjectiveItemDto) {
+  async addItem(
+    userId: string,
+    objectiveId: string,
+    dto: CreateObjectiveItemDto,
+  ) {
     const objective = await this.assertOwnedObjective(objectiveId, userId);
     const last = await this.prisma.learningObjectiveItem.findFirst({
       where: { objectiveId },
@@ -122,7 +128,10 @@ export class ObjectiveService {
       where: { id },
     });
     if (!objective) throw new NotFoundException(`Objective ${id} not found`);
-    await this.groupAccess.assertGroupWriter(objective.knowledgeGroupId, userId);
+    await this.groupAccess.assertGroupWriter(
+      objective.knowledgeGroupId,
+      userId,
+    );
     return objective;
   }
 
