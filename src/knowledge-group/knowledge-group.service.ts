@@ -171,6 +171,94 @@ export class KnowledgeGroupService {
     };
   }
 
+  // Du lieu cho widget "hanh trinh" tren /home (FE) - danh sach PHANG tat ca
+  // nhom kien thuc viewer SO HUU (qua cac Workspace cua chinh ho), kem %
+  // tien do - khac getProgress() (1 nhom) va WorkspaceService.listByOwnerWithGroups
+  // (long theo tung Workspace, khong co %). Viet rieng o day (khong import
+  // cheo sang WorkspaceService) theo dung tien le da co trong file nay.
+  async getJourney(viewerId: string) {
+    const workspaces = await this.prisma.workspace.findMany({
+      where: { ownerId: viewerId },
+      include: { groups: { orderBy: { orderIndex: 'asc' } } },
+    });
+    const groups = workspaces.flatMap((w) => w.groups);
+    if (groups.length === 0) {
+      return { groups: [], currentGroupId: null, totalUnderstood: 0 };
+    }
+    const groupIds = groups.map((g) => g.id);
+
+    const [checklistItems, studyDays] = await Promise.all([
+      this.prisma.checklistItem.findMany({
+        where: { document: { knowledgeGroupId: { in: groupIds } } },
+        select: {
+          status: true,
+          document: { select: { knowledgeGroupId: true } },
+        },
+      }),
+      this.prisma.knowledgeGroupStudyDay.findMany({
+        where: { knowledgeGroupId: { in: groupIds } },
+        select: { knowledgeGroupId: true, date: true },
+        orderBy: { date: 'desc' },
+      }),
+    ]);
+
+    const statsByGroup = new Map<
+      string,
+      { total: number; understood: number }
+    >();
+    for (const item of checklistItems) {
+      const gid = item.document.knowledgeGroupId;
+      const s = statsByGroup.get(gid) ?? { total: 0, understood: 0 };
+      s.total += 1;
+      if (item.status === 'UNDERSTOOD') s.understood += 1;
+      statsByGroup.set(gid, s);
+    }
+    const datesByGroup = new Map<string, Date[]>();
+    for (const row of studyDays) {
+      const arr = datesByGroup.get(row.knowledgeGroupId) ?? [];
+      arr.push(row.date);
+      datesByGroup.set(row.knowledgeGroupId, arr);
+    }
+
+    const apiGroups = groups.map((g) => {
+      const stats = statsByGroup.get(g.id) ?? { total: 0, understood: 0 };
+      const dates = datesByGroup.get(g.id) ?? [];
+      return {
+        id: g.id,
+        workspaceId: g.workspaceId,
+        name: g.name,
+        description: g.description,
+        icon: g.icon,
+        postCount: g.postCount,
+        progressPercent:
+          stats.total > 0
+            ? Math.round((stats.understood / stats.total) * 100)
+            : 0,
+        totalStudyDays: dates.length,
+        currentStreak: computeStreak(dates),
+      };
+    });
+
+    // "Chuong hien tai" = nhom co ngay hoc GAN NHAT THAT SU (studyDays da
+    // orderBy date desc nen row dau la ngay gan nhat toan bo). Chua hoc
+    // ngay nao thi fallback nhom moi tao gan nhat - van la du lieu that,
+    // khong bia so.
+    const mostRecentStudyRow = studyDays[0];
+    const currentGroupId =
+      mostRecentStudyRow?.knowledgeGroupId ??
+      [...groups].sort(
+        (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+      )[0]?.id ??
+      null;
+
+    const totalUnderstood = apiGroups.reduce((sum, g) => {
+      const s = statsByGroup.get(g.id);
+      return sum + (s?.understood ?? 0);
+    }, 0);
+
+    return { groups: apiGroups, currentGroupId, totalUnderstood };
+  }
+
   private toApi(
     group: KnowledgeGroup,
     viewerCanWrite: boolean,

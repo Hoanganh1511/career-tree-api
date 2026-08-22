@@ -54,4 +54,9 @@ export class KnowledgeGroupController {
   getProgress(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.groupService.getProgress(userId, id);
   }
+
+  @Get('knowledge-groups/journey')
+  getJourney(@CurrentUserId() userId: string) {
+    return this.groupService.getJourney(userId);
+  }
 }
