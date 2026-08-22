@@ -10,6 +10,7 @@ import {
 import { ChatService } from './chat.service';
 import { ChatSearchService } from './chat-search.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
+import { CreateGroupConversationDto } from './dto/create-group-conversation.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { UpdateConversationSettingsDto } from './dto/update-conversation-settings.dto';
 import { SearchMessagesQueryDto } from './dto/search-messages-query.dto';
@@ -50,6 +51,14 @@ export class ChatController {
   @Post()
   create(@CurrentUserId() userId: string, @Body() dto: CreateConversationDto) {
     return this.chatService.createOrGetConversation(userId, dto.username);
+  }
+
+  @Post('group')
+  createGroup(
+    @CurrentUserId() userId: string,
+    @Body() dto: CreateGroupConversationDto,
+  ) {
+    return this.chatService.createGroupConversation(userId, dto);
   }
 
   @Get(':id/messages')

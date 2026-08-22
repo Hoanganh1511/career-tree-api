@@ -126,10 +126,11 @@ export class NotificationGateway
       select: { userId: true },
     });
     if (!participants.some((p) => p.userId === userId)) return;
-    const other = participants.find((p) => p.userId !== userId);
-    if (!other) return;
 
-    this.emitToUser(other.userId, 'chat:typing', { conversationId, userId });
+    for (const other of participants) {
+      if (other.userId === userId) continue;
+      this.emitToUser(other.userId, 'chat:typing', { conversationId, userId });
+    }
   }
 
   // Goi tu NotificationService.create() ngay sau khi tao xong 1 thong bao -

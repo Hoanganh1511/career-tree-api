@@ -10,6 +10,7 @@ import { NotificationGateway } from '../notification/notification.gateway';
 import { MessageType, Prisma } from '../../generated/prisma/client';
 import { SendMessageDto } from './dto/send-message.dto';
 import { UpdateConversationSettingsDto } from './dto/update-conversation-settings.dto';
+import { CreateGroupConversationDto } from './dto/create-group-conversation.dto';
 
 // Chan client xin limit qua lon (vd 99999) khi chua co rate-limit o tang
 // global (@nestjs/throttler) - xem listMessages().
@@ -118,6 +119,43 @@ export class ChatService {
         participants: { create: [{ userId }, { userId: target.id }] },
       },
     });
+    return this.toSummary(created.id, userId);
+  }
+
+  // Nguoi tao + memberIds (da loc trung/loai chinh minh o DTO validation phia
+  // FE, o day loc lai lan nua cho chac) - toi thieu 3 nguoi tong cong.
+  async createGroupConversation(
+    userId: string,
+    dto: CreateGroupConversationDto,
+  ) {
+    const memberIds = Array.from(
+      new Set(dto.memberIds.filter((id) => id !== userId)),
+    );
+    if (memberIds.length < 2) {
+      throw new BadRequestException(
+        'Nhóm cần ít nhất 3 thành viên (kể cả bạn)',
+      );
+    }
+
+    const existingUsers = await this.prisma.user.findMany({
+      where: { id: { in: memberIds } },
+      select: { id: true },
+    });
+    if (existingUsers.length !== memberIds.length) {
+      throw new BadRequestException('Có thành viên không hợp lệ');
+    }
+
+    const created = await this.prisma.conversation.create({
+      data: {
+        isGroup: true,
+        name: dto.name.trim(),
+        avatarColor: dto.avatarColor,
+        participants: {
+          create: [userId, ...memberIds].map((id) => ({ userId: id })),
+        },
+      },
+    });
+
     return this.toSummary(created.id, userId);
   }
 
@@ -246,13 +284,13 @@ export class ChatService {
       return created;
     });
 
-    const other = await this.prisma.conversationParticipant.findFirst({
+    const others = await this.prisma.conversationParticipant.findMany({
       where: { conversationId, userId: { not: userId } },
       select: { userId: true },
     });
 
     const apiMessage = this.toMessageApi(message, userId);
-    if (other) {
+    if (others.length > 0) {
       try {
         // Gui kem senderName/senderAvatarUrl CHI trong payload emit (khong
         // them vao apiMessage tra ve qua REST, cung khong luu DB) - FE dung
@@ -262,11 +300,13 @@ export class ChatService {
           where: { id: userId },
           select: { name: true, avatarUrl: true },
         });
-        this.gateway.emitToUser(other.userId, 'chat:message', {
-          ...this.toMessageApi(message, other.userId),
-          senderName: sender?.name ?? null,
-          senderAvatarUrl: sender?.avatarUrl ?? null,
-        });
+        for (const other of others) {
+          this.gateway.emitToUser(other.userId, 'chat:message', {
+            ...this.toMessageApi(message, other.userId),
+            senderName: sender?.name ?? null,
+            senderAvatarUrl: sender?.avatarUrl ?? null,
+          });
+        }
       } catch {
         // best-effort - xem comment tuong tu trong NotificationService.create()
       }
@@ -310,20 +350,20 @@ export class ChatService {
       include: messageInclude,
     });
 
-    const other = await this.prisma.conversationParticipant.findFirst({
+    const others = await this.prisma.conversationParticipant.findMany({
       where: { conversationId, userId: { not: userId } },
       select: { userId: true },
     });
-    if (other) {
-      try {
+    try {
+      for (const other of others) {
         this.gateway.emitToUser(
           other.userId,
           'chat:message-updated',
           this.toMessageApi(updated, other.userId),
         );
-      } catch {
-        // best-effort
       }
+    } catch {
+      // best-effort
     }
 
     return this.toMessageApi(updated, userId);
@@ -386,19 +426,19 @@ export class ChatService {
       select: { userId: true, emoji: true },
     });
 
-    const other = await this.prisma.conversationParticipant.findFirst({
+    const others = await this.prisma.conversationParticipant.findMany({
       where: { conversationId, userId: { not: userId } },
       select: { userId: true },
     });
-    if (other) {
-      try {
+    try {
+      for (const other of others) {
         this.gateway.emitToUser(other.userId, 'chat:reaction-update', {
           messageId,
           reactions: this.toReactionSummary(reactions, other.userId),
         });
-      } catch {
-        // best-effort
       }
+    } catch {
+      // best-effort
     }
 
     return {
@@ -484,23 +524,23 @@ export class ChatService {
       }
     });
 
-    const other = await this.prisma.conversationParticipant.findFirst({
+    const others = await this.prisma.conversationParticipant.findMany({
       where: {
         conversationId: poll.message.conversationId,
         userId: { not: userId },
       },
       select: { userId: true },
     });
-    if (other) {
-      try {
+    try {
+      for (const other of others) {
         this.gateway.emitToUser(
           other.userId,
           'chat:poll-update',
           await this.getPollTally(pollId, other.userId),
         );
-      } catch {
-        // best-effort
       }
+    } catch {
+      // best-effort
     }
 
     return this.getPollTally(pollId, userId);
@@ -524,15 +564,18 @@ export class ChatService {
       data: { lastReadAt: readAt },
     });
 
-    const other = await this.prisma.conversationParticipant.findFirst({
+    // "Da xem" (chat:read) chi co y nghia cho 1-1 - nhom co nhieu nguoi doc,
+    // "da xem theo tung nguoi" chua duoc thiet ke (xem toSummary), nen chi
+    // tim + emit khi CHINH XAC 1 nguoi con lai (khong phai nhom).
+    const others = await this.prisma.conversationParticipant.findMany({
       where: { conversationId, userId: { not: userId } },
       select: { userId: true },
     });
-    if (other) {
+    if (others.length === 1) {
       try {
         // Bao real-time cho nguoi con lai de hien "Da xem" ngay, khong can
         // doi ho reload/fetch lai conversation summary.
-        this.gateway.emitToUser(other.userId, 'chat:read', {
+        this.gateway.emitToUser(others[0].userId, 'chat:read', {
           conversationId,
           readAt: readAt.toISOString(),
         });
@@ -564,8 +607,11 @@ export class ChatService {
     return { count: counts.reduce((sum, c) => sum + c, 0) };
   }
 
+  // otherParticipants la MANG (khong phai findFirst) de dung chung duoc cho
+  // ca 1-1 (mang 1 phan tu) lan nhom (mang N phan tu) - `otherUser` (field cu,
+  // FE 1-1 dang doc) tinh lai = participants[0] de tuong thich nguoc.
   private async toSummary(conversationId: string, viewerId: string) {
-    const [conversation, viewerParticipant, otherParticipant, lastMessage] =
+    const [conversation, viewerParticipant, otherParticipants, lastMessage] =
       await Promise.all([
         this.prisma.conversation.findUniqueOrThrow({
           where: { id: conversationId },
@@ -575,7 +621,7 @@ export class ChatService {
             conversationId_userId: { conversationId, userId: viewerId },
           },
         }),
-        this.prisma.conversationParticipant.findFirst({
+        this.prisma.conversationParticipant.findMany({
           where: { conversationId, userId: { not: viewerId } },
           include: { user: { select: miniUserSelect } },
         }),
@@ -594,29 +640,36 @@ export class ChatService {
       },
     });
 
+    const participants = otherParticipants.map((p) => ({
+      id: p.user.id,
+      username: p.user.username,
+      name: p.user.name,
+      avatarUrl: p.user.avatarUrl,
+      verified: p.user.verified,
+      // Snapshot tai thoi diem fetch - FE tu cap nhat real-time qua socket
+      // event "presence:update" (xem NotificationGateway).
+      online: this.gateway.isOnline(p.user.id),
+    }));
+
     return {
       id: conversation.id,
-      otherUser: otherParticipant
-        ? {
-            id: otherParticipant.user.id,
-            username: otherParticipant.user.username,
-            name: otherParticipant.user.name,
-            avatarUrl: otherParticipant.user.avatarUrl,
-            verified: otherParticipant.user.verified,
-            // Snapshot tai thoi diem fetch - FE tu cap nhat real-time qua
-            // socket event "presence:update" (xem NotificationGateway).
-            online: this.gateway.isOnline(otherParticipant.user.id),
-          }
-        : null,
+      isGroup: conversation.isGroup,
+      groupName: conversation.name,
+      groupAvatarColor: conversation.avatarColor,
+      otherUser: participants[0] ?? null,
+      participants,
       lastMessage: lastMessage
         ? this.toMessageApi(lastMessage, viewerId)
         : null,
       unreadCount: unread,
       updatedAt: conversation.updatedAt.toISOString(),
-      // Snapshot tai thoi diem fetch - FE cap nhat real-time qua socket event
-      // "chat:read" (xem markRead o tren) de hien "Da xem" ma khong can
-      // fetch lai summary sau moi lan nguoi kia doc tin.
-      otherLastReadAt: otherParticipant?.lastReadAt?.toISOString() ?? null,
+      // Chi co y nghia voi 1-1 (dung 1 nguoi doc) - nhom co NHIEU nguoi doc,
+      // "da xem theo tung nguoi" can thiet ke rieng (ngoai pham vi hien tai)
+      // nen tra null, FE tu fallback ve "Da gui" thay vi bia du lieu.
+      otherLastReadAt:
+        !conversation.isGroup && otherParticipants[0]
+          ? (otherParticipants[0].lastReadAt?.toISOString() ?? null)
+          : null,
       // Cai dat RIENG cua viewerId (khong doi xung) - xem updateSettings.
       isFavorite: viewerParticipant?.isFavorite ?? false,
       isMuted: viewerParticipant?.isMuted ?? false,

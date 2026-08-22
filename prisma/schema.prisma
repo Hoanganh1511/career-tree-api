@@ -816,6 +816,14 @@ model Conversation {
   id           String                     @id @default(uuid())
   participants ConversationParticipant[]
   messages     Message[]
+  // isGroup=false: 1-1 (nhu tu truoc gio, luon dung 2 participants). isGroup=true:
+  // nhom (>= 3 participants) - name bat buoc, avatarColor la 1 trong so mau
+  // co dinh nguoi tao chon luc tao (CHUA co upload anh that, xem
+  // CreateGroupModal.tsx o frontend), luu lai co dinh CHO NHOM DO chu khong
+  // phai random moi lan render.
+  isGroup      Boolean                    @default(false)
+  name         String?
+  avatarColor  String?
   createdAt    DateTime                   @default(now())
   updatedAt    DateTime                   @updatedAt
 }
