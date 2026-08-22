@@ -172,6 +172,11 @@ export class ChatController {
     return this.chatService.markRead(userId, id);
   }
 
+  @Get(':id/read-receipts')
+  listReadReceipts(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.chatService.listReadReceipts(userId, id);
+  }
+
   @Post(':id/mark-unread')
   markUnread(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.chatService.markUnread(userId, id);

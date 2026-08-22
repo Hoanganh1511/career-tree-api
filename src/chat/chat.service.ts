@@ -747,27 +747,43 @@ export class ChatService {
       data: { lastReadAt: readAt },
     });
 
-    // "Da xem" (chat:read) chi co y nghia cho 1-1 - nhom co nhieu nguoi doc,
-    // "da xem theo tung nguoi" chua duoc thiet ke (xem toSummary), nen chi
-    // tim + emit khi CHINH XAC 1 nguoi con lai (khong phai nhom).
+    // Bao real-time cho MOI nguoi con lai (ca 1-1 lan nhom) - kem userId de
+    // FE phan biet AI vua doc (nhom nhieu nguoi doc, moi nguoi hien avatar
+    // rieng duoi tin cuoi cung cua minh thay vi 1 dong "Da xem" chung - xem
+    // ChatService.listReadReceipts + MessagesShell.tsx).
     const others = await this.prisma.conversationParticipant.findMany({
       where: { conversationId, userId: { not: userId } },
       select: { userId: true },
     });
-    if (others.length === 1) {
-      try {
-        // Bao real-time cho nguoi con lai de hien "Da xem" ngay, khong can
-        // doi ho reload/fetch lai conversation summary.
-        this.gateway.emitToUser(others[0].userId, 'chat:read', {
+    try {
+      for (const other of others) {
+        this.gateway.emitToUser(other.userId, 'chat:read', {
           conversationId,
+          userId,
           readAt: readAt.toISOString(),
         });
-      } catch {
-        // best-effort
       }
+    } catch {
+      // best-effort
     }
 
     return { readAt: readAt.toISOString() };
+  }
+
+  // Moc "da doc den dau" cua TUNG thanh vien trong 1 hoi thoai (nhom) - dung
+  // de FE ve avatar-stack "da xem" duoi tin cuoi cung cua minh (xem
+  // MessagesShell.tsx). Tra ca chinh nguoi goi (khong loai tru) de FE tinh
+  // toan don gian, khong can phan biet.
+  async listReadReceipts(userId: string, conversationId: string) {
+    await this.assertParticipant(userId, conversationId);
+    const rows = await this.prisma.conversationParticipant.findMany({
+      where: { conversationId },
+      select: { userId: true, lastReadAt: true },
+    });
+    return rows.map((r) => ({
+      userId: r.userId,
+      lastReadAt: r.lastReadAt ? r.lastReadAt.toISOString() : null,
+    }));
   }
 
   async unreadCount(userId: string) {
@@ -944,6 +960,7 @@ export class ChatService {
       poll: m.isRecalled || !m.poll ? null : this.toPollApi(m.poll, viewerId),
       isRecalled: m.isRecalled,
       isPinned: m.isPinned,
+      pinnedAt: m.pinnedAt ? m.pinnedAt.toISOString() : null,
       replyTo: m.replyTo
         ? {
             id: m.replyTo.id,
