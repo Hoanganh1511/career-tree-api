@@ -241,6 +241,62 @@ export class ChatService {
     return { left: true };
   }
 
+  // Them thanh vien MOI vao nhom da co san - chi nhom (isGroup), bat ky
+  // thanh vien nao cung them duoc (chua co khai niem "admin"). Bo qua (khong
+  // loi) nhung id da la thanh vien roi, chi tao dong ConversationParticipant
+  // cho id THAT SU MOI. Emit "chat:group-updated" cho CA nguoi cu (participants
+  // array cua ho vua doi) LAN nguoi vua duoc them (ho CHUA co hoi thoai nay
+  // trong danh sach - FE tu them moi neu chua co, xem MessagesShell.tsx).
+  async addGroupMembers(
+    userId: string,
+    conversationId: string,
+    memberIds: string[],
+  ) {
+    await this.assertParticipant(userId, conversationId);
+    const conversation = await this.prisma.conversation.findUniqueOrThrow({
+      where: { id: conversationId },
+    });
+    if (!conversation.isGroup) {
+      throw new BadRequestException('Chỉ nhóm mới thêm thành viên được');
+    }
+
+    const existing = await this.prisma.conversationParticipant.findMany({
+      where: { conversationId },
+      select: { userId: true },
+    });
+    const existingIds = new Set(existing.map((p) => p.userId));
+    const toAdd = [...new Set(memberIds)].filter(
+      (id) => !existingIds.has(id),
+    );
+
+    if (toAdd.length > 0) {
+      await this.prisma.conversationParticipant.createMany({
+        data: toAdd.map((id) => ({ conversationId, userId: id })),
+      });
+    }
+
+    const allParticipants = await this.prisma.conversationParticipant.findMany(
+      {
+        where: { conversationId },
+        select: { userId: true },
+      },
+    );
+    for (const p of allParticipants) {
+      if (p.userId === userId) continue;
+      try {
+        this.gateway.emitToUser(
+          p.userId,
+          'chat:group-updated',
+          await this.toSummary(conversationId, p.userId),
+        );
+      } catch {
+        // best-effort
+      }
+    }
+
+    return this.toSummary(conversationId, userId);
+  }
+
   async listConversations(userId: string) {
     const rows = await this.prisma.conversation.findMany({
       where: { participants: { some: { userId } } },

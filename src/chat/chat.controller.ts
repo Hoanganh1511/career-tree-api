@@ -13,6 +13,7 @@ import { ChatSearchService } from './chat-search.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { CreateGroupConversationDto } from './dto/create-group-conversation.dto';
 import { UpdateGroupInfoDto } from './dto/update-group-info.dto';
+import { AddGroupMembersDto } from './dto/add-group-members.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { UpdateConversationSettingsDto } from './dto/update-conversation-settings.dto';
 import { SearchMessagesQueryDto } from './dto/search-messages-query.dto';
@@ -75,6 +76,15 @@ export class ChatController {
   @Post(':id/leave')
   leaveGroup(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.chatService.leaveGroup(userId, id);
+  }
+
+  @Post(':id/members')
+  addGroupMembers(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Body() dto: AddGroupMembersDto,
+  ) {
+    return this.chatService.addGroupMembers(userId, id, dto.memberIds);
   }
 
   @Get(':id/messages')
