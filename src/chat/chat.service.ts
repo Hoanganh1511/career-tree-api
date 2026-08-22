@@ -452,11 +452,14 @@ export class ChatService {
         },
         include: messageInclude,
       });
-      // Bump updatedAt de hoi thoai nay noi len dau danh sach - @updatedAt
-      // tu dong cap nhat tren MOI loi goi update(), khong can truyen data.
+      // Bump updatedAt de hoi thoai nay noi len dau danh sach - SET TUONG
+      // MINH (khong dua vao @updatedAt tu dong voi data: {} rong, da xac
+      // nhan qua kiem tra DB truc tiep la KHONG dang tin cay - Conversation
+      // .updatedAt bi "tut" lai xa so voi Message.createdAt that trong thuc
+      // te, gay hien thi/sap xep sai o FE - xem MessagesShell.tsx).
       await tx.conversation.update({
         where: { id: conversationId },
-        data: {},
+        data: { updatedAt: new Date() },
       });
       // Nguoi gui coi nhu da doc den tin nhan cua chinh minh - tranh badge
       // unread tu tang len chinh minh sau khi gui.
