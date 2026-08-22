@@ -865,6 +865,12 @@ enum MessageType {
   VOICE
   GIF
   POLL
+  // Tin he thong (vd "X đã thêm Y vào nhóm") - senderId la NGUOI THUC HIEN
+  // hanh dong (khong phai "nguoi gui" theo nghia thong thuong), content la
+  // cau mo ta san. Luu that vao Message (khong phai chi 1 socket event tam
+  // thoi) de xuat hien DUNG VI TRI trong lich su tin nhan, ke ca sau khi tai
+  // lai trang - xem ChatService.addGroupMembers.
+  SYSTEM
 }
 
 model Message {

@@ -273,6 +273,53 @@ export class ChatService {
       await this.prisma.conversationParticipant.createMany({
         data: toAdd.map((id) => ({ conversationId, userId: id })),
       });
+
+      // Luu THAT 1 tin nhan he thong ("X đã thêm Y, Z vào nhóm") - khong chi
+      // 1 socket event thoang qua, de xuat hien DUNG VI TRI trong lich su tin
+      // nhan (ke ca sau khi F5/tai lai) - xem MessageType.SYSTEM trong schema.
+      const [actor, addedUsers] = await Promise.all([
+        this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true },
+        }),
+        this.prisma.user.findMany({
+          where: { id: { in: toAdd } },
+          select: { name: true },
+        }),
+      ]);
+      const content = `${actor?.name ?? 'Ai đó'} đã thêm ${addedUsers
+        .map((u) => u.name)
+        .join(', ')} vào nhóm`;
+      const systemMessage = await this.prisma.message.create({
+        data: {
+          id: genMessageId(),
+          conversationId,
+          senderId: userId,
+          type: MessageType.SYSTEM,
+          content,
+        },
+        include: messageInclude,
+      });
+      // Bump updatedAt (SET TUONG MINH - xem sendMessage() ve ly do khong
+      // dung data: {} rong) de hoi thoai noi len dau danh sach dung luc.
+      await this.prisma.conversation.update({
+        where: { id: conversationId },
+        data: { updatedAt: new Date() },
+      });
+
+      const allParticipantsAfterAdd =
+        await this.prisma.conversationParticipant.findMany({
+          where: { conversationId },
+          select: { userId: true },
+        });
+      const apiSystemMessage = this.toMessageApi(systemMessage, userId);
+      for (const p of allParticipantsAfterAdd) {
+        try {
+          this.gateway.emitToUser(p.userId, 'chat:message', apiSystemMessage);
+        } catch {
+          // best-effort
+        }
+      }
     }
 
     const allParticipants = await this.prisma.conversationParticipant.findMany(
