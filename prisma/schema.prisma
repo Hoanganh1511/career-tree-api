@@ -824,6 +824,8 @@ model Conversation {
   isGroup      Boolean                    @default(false)
   name         String?
   avatarColor  String?
+  // Chi nhom dung - "Mo ta" trong panel thong tin nhom (GroupInfoPanel.tsx).
+  description  String?
   createdAt    DateTime                   @default(now())
   updatedAt    DateTime                   @updatedAt
 }
@@ -901,6 +903,10 @@ model Message {
   // "Tin nhắn đã được thu hồi" thay vi content/attachment that.
   isRecalled Boolean         @default(false)
   reactions  MessageReaction[]
+  // Ghim tin nhan - pinnedAt (khong chi 1 boolean) de sap xep "tin ghim moi
+  // nhat" trong GroupInfoPanel.tsx (preview chi hien 1 tin gan nhat).
+  isPinned   Boolean         @default(false)
+  pinnedAt   DateTime?
   createdAt  DateTime        @default(now())
   // Cot GENERATED (STORED) o DB - Postgres tu tinh lai moi khi `content` doi,
   // KHONG ghi tu Prisma (Unsupported = Prisma bo qua field nay khi build

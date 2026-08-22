@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -11,6 +12,7 @@ import { ChatService } from './chat.service';
 import { ChatSearchService } from './chat-search.service';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { CreateGroupConversationDto } from './dto/create-group-conversation.dto';
+import { UpdateGroupInfoDto } from './dto/update-group-info.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { UpdateConversationSettingsDto } from './dto/update-conversation-settings.dto';
 import { SearchMessagesQueryDto } from './dto/search-messages-query.dto';
@@ -61,6 +63,20 @@ export class ChatController {
     return this.chatService.createGroupConversation(userId, dto);
   }
 
+  @Patch(':id/group')
+  updateGroupInfo(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateGroupInfoDto,
+  ) {
+    return this.chatService.updateGroupInfo(userId, id, dto);
+  }
+
+  @Post(':id/leave')
+  leaveGroup(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.chatService.leaveGroup(userId, id);
+  }
+
   @Get(':id/messages')
   listMessages(
     @CurrentUserId() userId: string,
@@ -74,6 +90,44 @@ export class ChatController {
       cursor,
       limit ? Number(limit) : undefined,
     );
+  }
+
+  @Get(':id/media')
+  listMedia(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.chatService.listMedia(
+      userId,
+      id,
+      cursor,
+      limit ? Number(limit) : undefined,
+    );
+  }
+
+  @Get(':id/pinned-messages')
+  listPinnedMessages(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.chatService.listPinnedMessages(userId, id);
+  }
+
+  @Post(':id/messages/:messageId/pin')
+  pinMessage(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Param('messageId') messageId: string,
+  ) {
+    return this.chatService.pinMessage(userId, id, messageId);
+  }
+
+  @Delete(':id/messages/:messageId/pin')
+  unpinMessage(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Param('messageId') messageId: string,
+  ) {
+    return this.chatService.unpinMessage(userId, id, messageId);
   }
 
   @Post(':id/messages')

@@ -11,6 +11,7 @@ import { MessageType, Prisma } from '../../generated/prisma/client';
 import { SendMessageDto } from './dto/send-message.dto';
 import { UpdateConversationSettingsDto } from './dto/update-conversation-settings.dto';
 import { CreateGroupConversationDto } from './dto/create-group-conversation.dto';
+import { UpdateGroupInfoDto } from './dto/update-group-info.dto';
 
 // Chan client xin limit qua lon (vd 99999) khi chua co rate-limit o tang
 // global (@nestjs/throttler) - xem listMessages().
@@ -159,6 +160,87 @@ export class ChatService {
     return this.toSummary(created.id, userId);
   }
 
+  // Ten/mo ta/mau nhom - CHI nhom (Conversation cap do, khong phai
+  // ConversationParticipant nhu isFavorite/isMuted/isRestricted) nen bat ky
+  // thanh vien nao cung sua duoc (chua co khai niem "admin nhom" - ngoai
+  // pham vi hien tai).
+  async updateGroupInfo(
+    userId: string,
+    conversationId: string,
+    dto: UpdateGroupInfoDto,
+  ) {
+    await this.assertParticipant(userId, conversationId);
+    const conversation = await this.prisma.conversation.findUniqueOrThrow({
+      where: { id: conversationId },
+    });
+    if (!conversation.isGroup) {
+      throw new BadRequestException('Chỉ nhóm mới có thông tin này');
+    }
+
+    await this.prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+        ...(dto.description !== undefined
+          ? { description: dto.description.trim() || null }
+          : {}),
+        ...(dto.avatarColor !== undefined
+          ? { avatarColor: dto.avatarColor }
+          : {}),
+      },
+    });
+
+    const summary = await this.toSummary(conversationId, userId);
+    const others = await this.prisma.conversationParticipant.findMany({
+      where: { conversationId, userId: { not: userId } },
+      select: { userId: true },
+    });
+    for (const other of others) {
+      try {
+        this.gateway.emitToUser(
+          other.userId,
+          'chat:group-updated',
+          await this.toSummary(conversationId, other.userId),
+        );
+      } catch {
+        // best-effort
+      }
+    }
+    return summary;
+  }
+
+  // Roi nhom - xoa row ConversationParticipant cua CHINH userId. Khong ap
+  // dung cho 1-1 (roi = xoa han hoi thoai, khac ngu nghia hoan toan).
+  async leaveGroup(userId: string, conversationId: string) {
+    const participant = await this.assertParticipant(userId, conversationId);
+    const conversation = await this.prisma.conversation.findUniqueOrThrow({
+      where: { id: conversationId },
+    });
+    if (!conversation.isGroup) {
+      throw new BadRequestException('Không thể rời khỏi hội thoại 1-1');
+    }
+
+    await this.prisma.conversationParticipant.delete({
+      where: { id: participant.id },
+    });
+
+    const others = await this.prisma.conversationParticipant.findMany({
+      where: { conversationId },
+      select: { userId: true },
+    });
+    for (const other of others) {
+      try {
+        this.gateway.emitToUser(other.userId, 'chat:member-left', {
+          conversationId,
+          userId,
+        });
+      } catch {
+        // best-effort
+      }
+    }
+    return { left: true };
+  }
+
   async listConversations(userId: string) {
     const rows = await this.prisma.conversation.findMany({
       where: { participants: { some: { userId } } },
@@ -200,6 +282,107 @@ export class ChatService {
       items: page.map((m) => this.toMessageApi(m, userId)).reverse(),
       nextCursor: hasMore ? page[page.length - 1].id : null,
     };
+  }
+
+  // Anh/file/GIF/voice CHUA thu hoi - dung cho "Ảnh, file & link" trong
+  // GroupInfoPanel.tsx (preview vai tin dau + "Xem tất cả" phan trang tiep
+  // qua cung endpoint nay).
+  async listMedia(
+    userId: string,
+    conversationId: string,
+    cursor?: string,
+    limit = 30,
+  ) {
+    await this.assertParticipant(userId, conversationId);
+    const take = Math.min(Math.max(limit, 1), MAX_MESSAGES_PAGE_SIZE);
+
+    const rows = await this.prisma.message.findMany({
+      where: {
+        conversationId,
+        isRecalled: false,
+        type: {
+          in: [
+            MessageType.IMAGE,
+            MessageType.FILE,
+            MessageType.GIF,
+            MessageType.VOICE,
+          ],
+        },
+      },
+      take: take + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      orderBy: { id: 'desc' },
+      include: messageInclude,
+    });
+
+    const hasMore = rows.length > take;
+    const page = hasMore ? rows.slice(0, take) : rows;
+
+    return {
+      items: page.map((m) => this.toMessageApi(m, userId)),
+      nextCursor: hasMore ? page[page.length - 1].id : null,
+    };
+  }
+
+  async listPinnedMessages(userId: string, conversationId: string) {
+    await this.assertParticipant(userId, conversationId);
+    const rows = await this.prisma.message.findMany({
+      where: { conversationId, isPinned: true },
+      orderBy: { pinnedAt: 'desc' },
+      include: messageInclude,
+    });
+    return rows.map((m) => this.toMessageApi(m, userId));
+  }
+
+  async pinMessage(userId: string, conversationId: string, messageId: string) {
+    return this.setPinned(userId, conversationId, messageId, true);
+  }
+
+  async unpinMessage(
+    userId: string,
+    conversationId: string,
+    messageId: string,
+  ) {
+    return this.setPinned(userId, conversationId, messageId, false);
+  }
+
+  private async setPinned(
+    userId: string,
+    conversationId: string,
+    messageId: string,
+    pinned: boolean,
+  ) {
+    await this.assertParticipant(userId, conversationId);
+    const message = await this.prisma.message.findUnique({
+      where: { id: messageId },
+    });
+    if (!message || message.conversationId !== conversationId) {
+      throw new NotFoundException(`Message ${messageId} not found`);
+    }
+
+    const updated = await this.prisma.message.update({
+      where: { id: messageId },
+      data: { isPinned: pinned, pinnedAt: pinned ? new Date() : null },
+      include: messageInclude,
+    });
+
+    const others = await this.prisma.conversationParticipant.findMany({
+      where: { conversationId, userId: { not: userId } },
+      select: { userId: true },
+    });
+    for (const other of others) {
+      try {
+        this.gateway.emitToUser(
+          other.userId,
+          'chat:message-updated',
+          this.toMessageApi(updated, other.userId),
+        );
+      } catch {
+        // best-effort
+      }
+    }
+
+    return this.toMessageApi(updated, userId);
   }
 
   // Doi TEXT/IMAGE/FILE/VOICE/GIF/POLL deu di qua day - kiem tra cheo cac
@@ -656,6 +839,7 @@ export class ChatService {
       isGroup: conversation.isGroup,
       groupName: conversation.name,
       groupAvatarColor: conversation.avatarColor,
+      groupDescription: conversation.description,
       otherUser: participants[0] ?? null,
       participants,
       lastMessage: lastMessage
@@ -759,6 +943,7 @@ export class ChatService {
       durationSeconds: m.isRecalled ? null : m.durationSeconds,
       poll: m.isRecalled || !m.poll ? null : this.toPollApi(m.poll, viewerId),
       isRecalled: m.isRecalled,
+      isPinned: m.isPinned,
       replyTo: m.replyTo
         ? {
             id: m.replyTo.id,
