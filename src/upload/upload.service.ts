@@ -52,7 +52,23 @@ const PRESIGN_EXPIRY_SECONDS = 300;
 export class UploadService {
   private bucket = process.env.AWS_S3_BUCKET;
   private region = process.env.AWS_REGION;
-  private client = new S3Client({ region: this.region });
+  // Khoi tao TRE (khong phai field initializer nhu truoc) - S3Client() cua
+  // SDK ban nay throw NGAY ("Region is missing") khi region rong luc
+  // constructor chay, khong doi den luc goi API nhu ban cu. Field
+  // initializer chay VO DIEU KIEN moi lan NestJS tao UploadService (tuc luc
+  // app khoi dong) - lam sap CA APP ngay ca khi chua co ai dung tinh nang
+  // upload, bat ke check isConfigured() o duoi (check do chi bao ve luc GOI
+  // method, khong bao ve field initializer). Getter nay chi thuc su tao
+  // S3Client() lan DAU tien co method nao do dung toi `this.client` - moi
+  // method nhu vay deu da check isConfigured truoc, nen chua cau hinh AWS
+  // thi never chay toi day, app khoi dong binh thuong.
+  private _client: S3Client | null = null;
+  private get client(): S3Client {
+    if (!this._client) {
+      this._client = new S3Client({ region: this.region });
+    }
+    return this._client;
+  }
 
   constructor(private prisma: PrismaService) {}
 

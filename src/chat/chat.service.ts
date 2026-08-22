@@ -265,9 +265,7 @@ export class ChatService {
       select: { userId: true },
     });
     const existingIds = new Set(existing.map((p) => p.userId));
-    const toAdd = [...new Set(memberIds)].filter(
-      (id) => !existingIds.has(id),
-    );
+    const toAdd = [...new Set(memberIds)].filter((id) => !existingIds.has(id));
 
     if (toAdd.length > 0) {
       await this.prisma.conversationParticipant.createMany({
@@ -322,12 +320,10 @@ export class ChatService {
       }
     }
 
-    const allParticipants = await this.prisma.conversationParticipant.findMany(
-      {
-        where: { conversationId },
-        select: { userId: true },
-      },
-    );
+    const allParticipants = await this.prisma.conversationParticipant.findMany({
+      where: { conversationId },
+      select: { userId: true },
+    });
     for (const p of allParticipants) {
       if (p.userId === userId) continue;
       try {
