@@ -33,6 +33,15 @@ model User {
   username          String?      @unique
   avatarUrl         String?
   verified          Boolean      @default(false)
+  // Modal chao mung 3 buoc tren /home - null = chua tung hoan tat/bo qua,
+  // co gia tri = an modal vinh vien (ben qua nhieu thiet bi, KHONG dung
+  // localStorage vi buoc 3 tao that Workspace+KnowledgeGroup dau tien, xem
+  // UserService.completeOnboarding).
+  onboardedAt       DateTime?
+  // 1 trong 4 gia tri co dinh ("self"/"learn"/"career"/"community") chon o
+  // buoc 2 modal chao mung - luu that nhung CHUA co logic tieu thu (giong
+  // UserProfile.bio/pronouns hien tai).
+  onboardingGoal    String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   posts             Post[]

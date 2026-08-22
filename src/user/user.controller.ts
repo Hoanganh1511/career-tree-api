@@ -12,6 +12,7 @@ import { SyncGuard } from '../auth/sync.guard';
 import { CurrentUserId } from '../auth/current-user.decorator';
 import { UserService } from './user.service';
 import { SyncUserDto } from './dto/sync-user.dto';
+import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 
 @Controller('users')
 export class UserController {
@@ -29,6 +30,22 @@ export class UserController {
   @Post('me/revoke-sessions')
   revokeSessions(@CurrentUserId() userId: string) {
     return this.userService.revokeAllSessions(userId);
+  }
+
+  // Gate cho WelcomeOnboardingModal.tsx (FE). PHAI khai bao TRUOC
+  // @Get(':username') ben duoi - cung 1 ly do voi 'search' phia duoi
+  // (wildcard ':username' se nuot path 'me' neu no dung sau).
+  @Get('me')
+  getSelf(@CurrentUserId() userId: string) {
+    return this.userService.getSelf(userId);
+  }
+
+  @Post('me/onboarding')
+  completeOnboarding(
+    @CurrentUserId() userId: string,
+    @Body() dto: CompleteOnboardingDto,
+  ) {
+    return this.userService.completeOnboarding(userId, dto);
   }
 
   // PHAI khai bao TRUOC @Get(':username') ben duoi - NestJS khop route theo

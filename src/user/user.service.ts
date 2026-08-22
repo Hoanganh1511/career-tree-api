@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { SyncUserDto } from './dto/sync-user.dto';
+import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 import { FollowService } from 'src/follow/follow.service';
 
 @Injectable()
@@ -202,5 +203,51 @@ export class UserService {
       })),
       nextCursor: hasMore ? page[page.length - 1].id : null,
     };
+  }
+
+  // Gate cho modal chao mung 3 buoc tren /home (WelcomeOnboardingModal.tsx) -
+  // ban gon chi can 1 field, khong dung lai userSelect day du.
+  async getSelf(userId: string) {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { onboardedAt: true },
+    });
+    return { onboardedAt: user.onboardedAt?.toISOString() ?? null };
+  }
+
+  // Hoan tat/bo qua modal chao mung. CO firstChapterTitle -> tao THAT 1
+  // Workspace + 1 KnowledgeGroup dau tien (user moi toanh luon co 0
+  // Workspace - xem syncUser(), khong tu tao) - viet thang qua tx thay vi
+  // goi lai WorkspaceService/KnowledgeGroupService (chung khong nhan
+  // Prisma.TransactionClient tu ngoai truyen vao), cung 1 tien le voi
+  // ChatService.addGroupMembers. KHONG firstChapterTitle (dong modal som o
+  // buoc 1/2) -> chi danh dau onboardedAt, khong tao gi ca.
+  async completeOnboarding(userId: string, dto: CompleteOnboardingDto) {
+    return this.prisma.$transaction(async (tx) => {
+      let workspaceId: string | null = null;
+      let groupId: string | null = null;
+      if (dto.firstChapterTitle) {
+        const user = await tx.user.findUniqueOrThrow({
+          where: { id: userId },
+          select: { name: true },
+        });
+        const workspace = await tx.workspace.create({
+          data: { ownerId: userId, name: `Không gian của ${user.name}` },
+        });
+        const group = await tx.knowledgeGroup.create({
+          data: {
+            workspaceId: workspace.id,
+            name: dto.firstChapterTitle,
+          },
+        });
+        workspaceId = workspace.id;
+        groupId = group.id;
+      }
+      await tx.user.update({
+        where: { id: userId },
+        data: { onboardedAt: new Date(), onboardingGoal: dto.goal },
+      });
+      return { workspaceId, groupId };
+    });
   }
 }
