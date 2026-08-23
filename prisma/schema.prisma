@@ -988,3 +988,65 @@ model PollVote {
   @@unique([pollOptionId, userId])
   @@index([userId])
 }
+
+// GL Life Book (/services/gl-life-book) - "tap chi" lat trang, moi trang la 1
+// luoi 10x14 o VO HINH chua cac Block tu do keo/resize. `userId` la STRING
+// THUONG (KHONG phai FK toi User) - Phase 1 CHUA co auth that cho tinh nang
+// nay (hardcode "demo-user" o BooksController), gan FK vao 1 User.id khong
+// ton tai se vi pham rang buoc khoa ngoai. Se doi thanh FK that + @CurrentUserId()
+// khi noi tinh nang nay voi auth that o phase sau.
+model Book {
+  id          String   @id @default(uuid())
+  userId      String
+  title       String
+  // Cau hinh trang bia (mau/anh/font...) - tu do theo Phase sau, chua co
+  // schema co dinh nen la Json giong Document.content.
+  coverConfig Json?
+  // Cong tac "mo cua" cho route /services/gl-life-book/[bookId] - mac dinh
+  // false (dong) vi editor con dang xay dang do (Phase 6) va toan bo
+  // BooksController dang @Public() khong auth. KHONG expose field nay qua
+  // UpdateBookDto - de 1 endpoint PATCH cong khai bat lai duoc se vo hieu
+  // hoa chinh muc dich dong cua no; chi doi qua migration/script rieng.
+  isOpen      Boolean  @default(false)
+  pages       Page[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// 1 trang trong Book - `order` 0 = trang muc luc (Table of Contents, luon
+// rong o Phase 1), cac trang sau la noi dung THAT (luoi 10x14 chua Block).
+model Page {
+  id        String   @id @default(uuid())
+  bookId    String
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  order     Int
+  blocks    Block[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bookId, order])
+  @@index([bookId])
+}
+
+// 1 khoi tren luoi 10x14 (vo hinh) cua 1 Page - gridX/gridY la o BAT DAU
+// (0-based), gridW/gridH la so cot/hang khoi chiem (mac dinh 2x2). `content`
+// la Konva scene JSON (stage.toJSON() tu react-konva editor, xem Phase 3) -
+// null = block con rong (chua mo editor lan nao) - de Json giong cach
+// Document.content (Tiptap JSON) dang lam, KHONG rang buoc schema cu the vi
+// hinh dang Konva scene nam ngoai kiem soat cua BE.
+model Block {
+  id        String   @id @default(uuid())
+  pageId    String
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  gridX     Int
+  gridY     Int
+  gridW     Int      @default(2)
+  gridH     Int      @default(2)
+  content   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pageId])
+}

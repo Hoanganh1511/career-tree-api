@@ -29,6 +29,7 @@ import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 import { ChatModule } from './chat/chat.module';
 import { UploadModule } from './upload/upload.module';
 import { GifModule } from './gif/gif.module';
+import { BooksModule } from './books/books.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { GifModule } from './gif/gif.module';
     ChatModule,
     UploadModule,
     GifModule,
+    BooksModule,
   ],
   controllers: [AppController],
   providers: [AppService],
