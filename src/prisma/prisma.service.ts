@@ -18,6 +18,15 @@ export class PrismaService
   constructor() {
     super({
       adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+      // Neon (serverless, qua pooler endpoint -pooler.*) doi khi mat vai giay
+      // de "danh thuc" compute/cap connection tu pool - default cua Prisma
+      // (maxWait 2s cho tu luc cho connection, timeout 5s cho ca transaction)
+      // qua ngan, gay P2028 "Unable to start a transaction in the given
+      // time" (khong phai loi code, chi la cho connection lau hon 2s). Noi
+      // rong 2 moc nay o muc CLIENT (ap dung cho MOI $transaction trong app,
+      // vd UserService.syncUser/completeOnboarding, ChatService.addGroupMembers...)
+      // thay vi sua tung noi goi $transaction rieng le.
+      transactionOptions: { maxWait: 10_000, timeout: 15_000 },
     });
   }
 

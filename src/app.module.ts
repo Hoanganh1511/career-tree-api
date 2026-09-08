@@ -30,6 +30,7 @@ import { ChatModule } from './chat/chat.module';
 import { UploadModule } from './upload/upload.module';
 import { GifModule } from './gif/gif.module';
 import { BooksModule } from './books/books.module';
+import { DiaryModule } from './diary/diary.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { BooksModule } from './books/books.module';
     UploadModule,
     GifModule,
     BooksModule,
+    DiaryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -205,14 +205,19 @@ export class UserService {
     };
   }
 
-  // Gate cho modal chao mung 3 buoc tren /home (WelcomeOnboardingModal.tsx) -
-  // ban gon chi can 1 field, khong dung lai userSelect day du.
+  // Gate cho modal chao mung 3 buoc tren /home (WelcomeOnboardingModal.tsx),
+  // gio kiem luon isAdmin - tai dung cho DailyDiaryAccessModal.tsx (FE) xac
+  // thuc quyen truoc khi dieu huong sang /u/:username/daily-diary (AdminGuard
+  // o BE van chan lai doc lap, day chi la buoc UX o FE).
   async getSelf(userId: string) {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
-      select: { onboardedAt: true },
+      select: { onboardedAt: true, isAdmin: true },
     });
-    return { onboardedAt: user.onboardedAt?.toISOString() ?? null };
+    return {
+      onboardedAt: user.onboardedAt?.toISOString() ?? null,
+      isAdmin: user.isAdmin,
+    };
   }
 
   // Hoan tat/bo qua modal chao mung. CO firstChapterTitle -> tao THAT 1

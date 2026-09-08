@@ -42,6 +42,11 @@ model User {
   // buoc 2 modal chao mung - luu that nhung CHUA co logic tieu thu (giong
   // UserProfile.bio/pronouns hien tai).
   onboardingGoal    String?
+  // Admin GL Daily Diary - CHI 1 tai khoan duy nhat (chinh chu app) dung
+  // thu cong qua SQL sau khi migrate (khong co UI quan ly nhieu admin, app
+  // khong co khai niem admin toan cuc nao khac - xem AdminGuard). KHONG lien
+  // quan CommunityMemberRole (role do scoped rieng theo tung community).
+  isAdmin           Boolean      @default(false)
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
   posts             Post[]
@@ -68,6 +73,7 @@ model User {
   messagesSent                 Message[]
   pollVotes                    PollVote[]
   messageReactions             MessageReaction[]
+  diaryTopics                  DiaryTopic[]
 }
 
 // Feed Trang chu - truoc day 100% mock o frontend (enggo/src/content/
@@ -278,6 +284,16 @@ model UserFollow {
   @@index([followerId, createdAt])
 }
 
+// Compose Giai doan 2 - DRAFT/PUBLIC deu de hieu, LIMITED = "Cong khai gioi
+// han" kieu Unlisted (an khoi feed/tim kiem mac dinh, nhung GET posts/:id
+// van mo cho BAT KY ai co link - khong can he thong follow/quyen rieng).
+// Xem post-visibility.util.ts cho mapping kebab-case (API) <-> enum nay.
+enum PostVisibility {
+  DRAFT
+  PUBLIC
+  LIMITED
+}
+
 model Post {
   id               String          @id @default(uuid())
   authorId         String
@@ -300,6 +316,14 @@ model Post {
   // nhung field do gio lay theo KIND tu POST_KIND_META o frontend thay vi luu
   // rieng tung post, tranh phai serialize component icon (khong the luu DB).
   data             Json
+  // Compose Giai doan 2 - visibility that (loc o PostService.findAll/findOne,
+  // xem post.service.ts), 3 co cho phep/tim kiem CHI la du lieu THAT duoc luu
+  // lai, CHUA co he thong Comment/Reaction/tim kiem Post nao tieu thu chung -
+  // giong dung tinh than da chot o Giai doan 1 (luu that, chua co gi dung toi).
+  visibility       PostVisibility  @default(PUBLIC)
+  commentsEnabled  Boolean         @default(true)
+  likesEnabled     Boolean         @default(true)
+  searchable       Boolean         @default(true)
   // So tinh, seed san - CHUA co bang Like/Comment that, bam Like/Comment o UI
   // hien la tuong tac cuc bo (xem ActionButton.tsx), chua ghi lai DB.
   likesCount       Int             @default(0)
@@ -313,6 +337,7 @@ model Post {
   @@index([createdAt])
   @@index([category, createdAt])
   @@index([careerCategoryId, createdAt])
+  @@index([visibility, createdAt])
 }
 
 model UserProfile {
@@ -649,39 +674,39 @@ model Notification {
 // `content` la Tiptap JSON (giong Node.content / Card.content cu). Slug DUY
 // NHAT trong pham vi 1 tac gia (2 nguoi khac nhau co the cung slug).
 model Document {
-  id               String          @id @default(uuid())
-  authorId         String
-  author           User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  knowledgeGroupId String
-  knowledgeGroup   KnowledgeGroup  @relation(fields: [knowledgeGroupId], references: [id], onDelete: Cascade)
-  slug             String
-  title            String
-  summary          String? // mo ta ngan, hien o the danh sach + og description
+  id                 String          @id @default(uuid())
+  authorId           String
+  author             User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  knowledgeGroupId   String
+  knowledgeGroup     KnowledgeGroup  @relation(fields: [knowledgeGroupId], references: [id], onDelete: Cascade)
+  slug               String
+  title              String
+  summary            String? // mo ta ngan, hien o the danh sach + og description
   // Tong quan noi dung - Tiptap JSON nhung schema HAN CHE (chi in dam/in
   // nghieng/danh sach cham/danh sach so, xem getOverviewExtensions() o FE).
   // Hien thanh 1 box duoi tieu de trong danh sach bai viet - KHAC voi
   // `summary` (plain text, dung cho OG description) va `content` (bai day du).
-  overview         Json?
-  coverImageUrl    String? // anh bia (nhap qua URL - chua co upload S3)
-  content          Json // Tiptap/ProseMirror JSON
-  tags             String[]        @default([])
-  isPinned         Boolean         @default(false) // ghim len dau danh sach bai trong nhom
-  isPublished      Boolean         @default(true) // false = ban nhap, chi tac gia thay
-  viewCount        Int             @default(0)
+  overview           Json?
+  coverImageUrl      String? // anh bia (nhap qua URL - chua co upload S3)
+  content            Json // Tiptap/ProseMirror JSON
+  tags               String[]        @default([])
+  isPinned           Boolean         @default(false) // ghim len dau danh sach bai trong nhom
+  isPublished        Boolean         @default(true) // false = ban nhap, chi tac gia thay
+  viewCount          Int             @default(0)
   // Nhom "cung chu de" (tuy chon) - xem comment model DocumentSeries. 1 bai
   // CHI thuoc 1 series (khong many-to-many, giu don gian cho UI gop box).
   // onDelete: SetNull - xoa series KHONG xoa bai viet theo, chi roi ve
   // "khong nhom".
-  seriesId         String?
-  series           DocumentSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  seriesId           String?
+  series             DocumentSeries? @relation(fields: [seriesId], references: [id], onDelete: SetNull)
   // "Nhat ky hoc tap" cong khai gan tren bai viet - xem comment model
   // ChecklistItem. Cờ nay CHI gate viec nguoi đọc KHÁC co xem duoc LICH SU
   // (ChecklistItemLog) hay khong - trang thai/note hien tai cua tung muc
   // LUON cong khai (khong gate boi co nay), dung y dinh "nhat ky cong khai".
-  checklistLogPublic Boolean        @default(false)
-  checklistItems   ChecklistItem[]
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  checklistLogPublic Boolean         @default(false)
+  checklistItems     ChecklistItem[]
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
 
   @@unique([authorId, slug])
   @@index([authorId, isPinned, updatedAt])
@@ -719,17 +744,17 @@ enum ChecklistGroup {
 // tu. Chi LICH SU đổi trạng thái (ChecklistItemLog) bi gate boi
 // Document.checklistLogPublic.
 model ChecklistItem {
-  id         String            @id @default(uuid())
+  id         String             @id @default(uuid())
   documentId String
-  document   Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document   Document           @relation(fields: [documentId], references: [id], onDelete: Cascade)
   label      String
-  status     ChecklistStatus   @default(NOT_UNDERSTOOD)
-  group      ChecklistGroup    @default(OBJECTIVE)
+  status     ChecklistStatus    @default(NOT_UNDERSTOOD)
+  group      ChecklistGroup     @default(OBJECTIVE)
   note       String? // ghi chu HIEN TAI, sua duoc doc lap voi status
-  orderIndex Int               @default(0)
+  orderIndex Int                @default(0)
   logs       ChecklistItemLog[]
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
 
   @@index([documentId, orderIndex])
 }
@@ -822,7 +847,7 @@ model DocumentSeries {
 // moi (xem ChatService.sendMessage) - dung de sap xep danh sach hoi thoai
 // theo "moi nhat len dau" ma khong can join/aggregate Message moi lan list.
 model Conversation {
-  id           String                     @id @default(uuid())
+  id           String                    @id @default(uuid())
   participants ConversationParticipant[]
   messages     Message[]
   // isGroup=false: 1-1 (nhu tu truoc gio, luon dung 2 participants). isGroup=true:
@@ -830,13 +855,13 @@ model Conversation {
   // co dinh nguoi tao chon luc tao (CHUA co upload anh that, xem
   // CreateGroupModal.tsx o frontend), luu lai co dinh CHO NHOM DO chu khong
   // phai random moi lan render.
-  isGroup      Boolean                    @default(false)
+  isGroup      Boolean                   @default(false)
   name         String?
   avatarColor  String?
   // Chi nhom dung - "Mo ta" trong panel thong tin nhom (GroupInfoPanel.tsx).
   description  String?
-  createdAt    DateTime                   @default(now())
-  updatedAt    DateTime                   @updatedAt
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
 }
 
 // lastReadAt: moc "da doc den dau" cua TUNG nguoi trong hoi thoai - unreadCount
@@ -888,13 +913,13 @@ model Message {
   // (orderBy: id thay vi createdAt - id la unique + sortable, tranh dung
   // createdAt lam cursor field vi co the trung nhau khi nhieu tin gui cung
   // luc, gay phan trang khong on dinh/lap-sot tin).
-  id             String       @id
-  conversationId String
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  senderId       String
-  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  type           MessageType  @default(TEXT)
-  content        String?
+  id                 String                   @id
+  conversationId     String
+  conversation       Conversation             @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId           String
+  sender             User                     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  type               MessageType              @default(TEXT)
+  content            String?
   // IMAGE/FILE/VOICE/GIF dung chung 4 field nay - upload that di qua
   // UploadService (AWS S3), xem uploads.module.ts. GIF: attachmentUrl la link
   // Giphy, khong upload len S3.
@@ -910,26 +935,32 @@ model Message {
   // khong lam vo chuoi reply (con lai la "tin nhan da bi xoa" o phia FE dua
   // vao replyTo null + replyToId con gia tri... thuc te KHONG xoa cung Message
   // - xem isRecalled, nen truong hop SetNull hiem xay ra tren thuc te).
-  replyToId String?
-  replyTo   Message?  @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies   Message[] @relation("MessageReplies")
+  replyToId          String?
+  replyTo            Message?                 @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies            Message[]                @relation("MessageReplies")
   // Thu hoi (unsend) - CHI nguoi gui thu hoi duoc tin cua chinh minh. Giu
   // nguyen row (khong xoa that) de khong pha vo thu tu/reply chain - FE hien
   // "Tin nhắn đã được thu hồi" thay vi content/attachment that.
-  isRecalled Boolean         @default(false)
-  reactions  MessageReaction[]
+  isRecalled         Boolean                  @default(false)
+  reactions          MessageReaction[]
   // Ghim tin nhan - pinnedAt (khong chi 1 boolean) de sap xep "tin ghim moi
   // nhat" trong GroupInfoPanel.tsx (preview chi hien 1 tin gan nhat).
-  isPinned   Boolean         @default(false)
-  pinnedAt   DateTime?
-  createdAt  DateTime        @default(now())
+  isPinned           Boolean                  @default(false)
+  pinnedAt           DateTime?
+  createdAt          DateTime                 @default(now())
   // Cot GENERATED (STORED) o DB - Postgres tu tinh lai moi khi `content` doi,
   // KHONG ghi tu Prisma (Unsupported = Prisma bo qua field nay khi build
   // query thuong, chi truy van duoc qua $queryRaw). Xem migration
   // "message_search_vector" de biet bieu thuc sinh gia tri (to_tsvector
   // config "simple" + unaccent) va docs/chat-search-architecture.md de biet
   // ly do chon huong nay.
-  searchVector Unsupported("tsvector")?
+  // Cot GENERATED (STORED) o DB - Postgres tu tinh lai moi khi `content` doi,
+  // KHONG ghi tu Prisma (Unsupported = Prisma bo qua field nay khi build
+  // query thuong, chi truy van duoc qua $queryRaw). Xem migration
+  // "message_search_vector" de biet bieu thuc sinh gia tri (to_tsvector
+  // config "simple" + unaccent) va docs/chat-search-architecture.md de biet
+  // ly do chon huong nay.
+  searchVector       Unsupported("tsvector")?
 
   @@index([conversationId, createdAt])
   // Ho tro cursor pagination trong listMessages (orderBy: id, cursor: { id }).
@@ -1049,4 +1080,307 @@ model Block {
   updatedAt DateTime @updatedAt
 
   @@index([pageId])
+}
+
+// GL Daily Diary - "chu de" nguoi dung (chi 1 admin duy nhat, xem User.isAdmin)
+// tu tao/sua/xoa, moi topic chua nhieu DiaryEntry hien thi dang slide cuon
+// ngang o FE (xem DiaryShell.tsx). Khac Book/Page o tren (Book.userId la
+// string demo, KHONG FK that) - o day dung FK that vi day la tinh nang dung
+// that cho 1 tai khoan that, khong con o Phase demo.
+model DiaryTopic {
+  id         String       @id @default(uuid())
+  ownerId    String
+  owner      User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  name       String
+  orderIndex Int          @default(0)
+  entries    DiaryEntry[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([ownerId, orderIndex])
+}
+
+model DiaryEntry {
+  id        String     @id @default(uuid())
+  topicId   String
+  topic     DiaryTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  // Ngay NGUOI DUNG chon cho bai viet (co the khac ngay tao that, vd viet bu
+  // cho hom qua) - @db.Date vi chi can ngay, khong can gio/timezone.
+  entryDate DateTime   @db.Date
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([topicId, entryDate])
+}
+
+// ============================================================================
+// KHOI PHUC 2026-09-08: 18 model duoi day co THAT tren DB (Category, Article,
+// Collection, Tag, Goal, RoadmapNode...) nhung bi THIEU hoan toan khoi
+// schema.prisma cua repo nay (khong ro tu bao gio/vi sao lech) - phat hien
+// khi chay migrate cho Compose Giai doan 2 (them Post.visibility), Prisma
+// doi RESET ca database vi khong nhan ra cac bang nay. Da xac nhan voi nguoi
+// dung: cac model nay THUOC VE du an, dua lai vao day qua `prisma db pull`
+// (doc-only, khong doi du lieu) roi doi ten field quan he ve dung quy uoc
+// camelCase cua repo (introspection tu dat ten PascalCase kieu ArticleTag
+// ArticleTag[] - KHONG co code nao trong repo dang dung ten cu nay nen doi
+// thoai mai, an toan). CHUA co service/controller/DTO nao trong src/ dung
+// toi cac model nay - phan backend cho tinh nang Article/Roadmap/Goal (neu
+// co) van con thieu, chi moi khoi phuc duoc schema.
+// ============================================================================
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum HighlightColor {
+  YELLOW
+  GREEN
+  BLUE
+  PINK
+}
+
+enum QuestionStatus {
+  OPEN
+  ANSWERED
+}
+
+enum RoadmapNodeKind {
+  MILESTONE
+  TOPIC
+}
+
+enum RoadmapNodeStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  DONE
+}
+
+model Category {
+  id          String       @id @default(uuid())
+  slug        String       @unique
+  name        String
+  description String?
+  icon        String?
+  orderIndex  Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  collections Collection[]
+}
+
+model Collection {
+  id            String        @id @default(uuid())
+  categoryId    String
+  userId        String
+  slug          String
+  title         String
+  description   String?
+  coverImageUrl String?
+  status        ContentStatus @default(DRAFT)
+  orderIndex    Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  category      Category      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  articles      Article[]
+
+  @@unique([categoryId, slug])
+  @@index([categoryId, orderIndex])
+}
+
+model Article {
+  id                  String               @id @default(uuid())
+  collectionId        String
+  userId              String
+  slug                String
+  title               String
+  excerpt             String?
+  content             Json
+  coverImageUrl       String?
+  status              ContentStatus        @default(DRAFT)
+  orderIndex          Int                  @default(0)
+  readingTimeSec      Int?
+  viewCount           Int                  @default(0)
+  publishedAt         DateTime?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  collection          Collection           @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  bookmarks           ArticleBookmark[]
+  comments            ArticleComment[]
+  likes               ArticleLike[]
+  tags                ArticleTag[]
+  highlights          Highlight[]
+  questions           Question[]
+  roadmapNodeArticles RoadmapNodeArticle[]
+
+  @@unique([collectionId, slug])
+  @@index([collectionId, orderIndex])
+  @@index([status, publishedAt])
+}
+
+model ArticleBookmark {
+  id        String   @id @default(uuid())
+  articleId String
+  userId    String
+  createdAt DateTime @default(now())
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, userId])
+}
+
+model ArticleComment {
+  id        String                   @id @default(uuid())
+  articleId String
+  userId    String
+  parentId  String?
+  content   String
+  isDeleted Boolean                  @default(false)
+  createdAt DateTime                 @default(now())
+  updatedAt DateTime                 @updatedAt
+  article   Article                  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  parent    ArticleComment?          @relation("ArticleCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   ArticleComment[]         @relation("ArticleCommentReplies")
+  reactions ArticleCommentReaction[]
+
+  @@index([articleId, createdAt])
+  @@index([parentId])
+}
+
+model ArticleCommentReaction {
+  id        String         @id @default(uuid())
+  commentId String
+  userId    String
+  emoji     String
+  createdAt DateTime       @default(now())
+  comment   ArticleComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, emoji])
+}
+
+model ArticleLike {
+  id        String   @id @default(uuid())
+  articleId String
+  userId    String
+  createdAt DateTime @default(now())
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, userId])
+}
+
+model Tag {
+  id          String       @id @default(uuid())
+  slug        String       @unique
+  name        String
+  articleTags ArticleTag[]
+}
+
+model ArticleTag {
+  articleId String
+  tagId     String
+  article   Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, tagId])
+  @@index([tagId])
+}
+
+model Highlight {
+  id         String         @id @default(uuid())
+  articleId  String
+  userId     String
+  exactText  String
+  prefixText String
+  suffixText String
+  color      HighlightColor @default(YELLOW)
+  note       String?
+  createdAt  DateTime       @default(now())
+  article    Article        @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId, userId])
+}
+
+model Goal {
+  id           String        @id @default(uuid())
+  userId       String
+  slug         String
+  title        String
+  description  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  roadmapNodes RoadmapNode[]
+
+  @@unique([userId, slug])
+  @@index([userId])
+}
+
+model RoadmapNode {
+  id          String                @id @default(uuid())
+  goalId      String
+  parentId    String?
+  title       String
+  description String?
+  kind        RoadmapNodeKind       @default(TOPIC)
+  orderIndex  Int                   @default(0)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  goal        Goal                  @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  parent      RoadmapNode?          @relation("RoadmapNodeChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children    RoadmapNode[]         @relation("RoadmapNodeChildren")
+  questions   Question[]
+  articles    RoadmapNodeArticle[]
+  progress    RoadmapNodeProgress[]
+
+  @@index([goalId, parentId, orderIndex])
+}
+
+model RoadmapNodeArticle {
+  nodeId     String
+  articleId  String
+  note       String?
+  orderIndex Int         @default(0)
+  article    Article     @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  node       RoadmapNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@id([nodeId, articleId])
+  @@index([articleId])
+}
+
+model RoadmapNodeProgress {
+  id          String            @id @default(uuid())
+  nodeId      String
+  userId      String
+  status      RoadmapNodeStatus @default(NOT_STARTED)
+  completedAt DateTime?
+  updatedAt   DateTime          @updatedAt
+  node        RoadmapNode       @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@unique([nodeId, userId])
+}
+
+model Question {
+  id            String           @id @default(uuid())
+  userId        String
+  content       String
+  articleId     String?
+  roadmapNodeId String?
+  status        QuestionStatus   @default(OPEN)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  article       Article?         @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  roadmapNode   RoadmapNode?     @relation(fields: [roadmapNodeId], references: [id], onDelete: Cascade)
+  answers       QuestionAnswer[]
+
+  @@index([articleId])
+  @@index([roadmapNodeId])
+  @@index([userId])
+}
+
+model QuestionAnswer {
+  id         String   @id @default(uuid())
+  questionId String
+  content    String
+  createdAt  DateTime @default(now())
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
