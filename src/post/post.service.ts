@@ -3,6 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, PostCategory } from '../../generated/prisma/client';
 import { CreatePostDto } from './dto/create-post.dto';
 import { toApiKind, toDbKind } from './post-kind.util';
+import { toApiVisibility, toDbVisibility } from './post-visibility.util';
 import { UNCATEGORIZED_SLUG } from '../feed-category/feed-category.service';
 
 // Export de ContestService tra ve post dung CUNG shape voi GET /posts (khong
@@ -46,6 +47,12 @@ export function toApiPost(post: PostWithAuthor) {
       reposts: post.repostsCount,
     },
     category: post.category,
+    // Compose Giai doan 2 - cot THAT (sibling voi cac field tren, KHONG nam
+    // trong `data`) - xem CreatePostDto.
+    visibility: toApiVisibility(post.visibility),
+    commentsEnabled: post.commentsEnabled,
+    likesEnabled: post.likesEnabled,
+    searchable: post.searchable,
     ...(post.data as Record<string, unknown>),
   };
 }
@@ -58,6 +65,7 @@ export class PostService {
   // the nhu Node/Card) nen khong co OwnershipService.assertXOwner nao o day -
   // guard toan cuc (JwtAuthGuard) da dam bao phai dang nhap la du.
   async findAll(params: {
+    viewerId: string;
     cursor?: string;
     limit?: number;
     authorUsername?: string;
@@ -67,6 +75,7 @@ export class PostService {
     careerGroup?: string;
   }) {
     const {
+      viewerId,
       cursor,
       limit = 30,
       authorUsername,
@@ -92,6 +101,11 @@ export class PostService {
         ...(careerGroup
           ? { careerCategory: { group: { slug: careerGroup } } }
           : {}),
+        // Compose Giai doan 2 - mac dinh CHI PUBLIC (an DRAFT/LIMITED khoi
+        // moi listing, dung Unlisted cho LIMITED), TRU bai cua CHINH nguoi
+        // xem (vd tren trang ca nhan cua ho, thay ca draft/gioi han cua
+        // minh) - khong can lookup username rieng, so authorId truc tiep.
+        OR: [{ visibility: 'PUBLIC' }, { authorId: viewerId }],
       },
       orderBy: { createdAt: 'desc' },
       take: limit,
@@ -103,13 +117,17 @@ export class PostService {
 
   // Dung cho trang chi tiet 1 bai viet (enggo: /p/[id]) - tra ve null (khong
   // throw) khi khong tim thay, de controller tu quyet dinh ma HTTP status
-  // (404) thay vi service gia dinh san.
-  async findOne(id: string) {
+  // (404) thay vi service gia dinh san. LIMITED van mo cho BAT KY ai co link
+  // (dung Unlisted) - CHI chan DRAFT neu nguoi xem khong phai tac gia (tra
+  // ve null giong het "khong tim thay", khong lo lieu bai draft co ton tai).
+  async findOne(id: string, viewerId: string) {
     const post = await this.prisma.post.findUnique({
       where: { id },
       include: { author: { select: authorSelect } },
     });
-    return post ? toApiPost(post) : null;
+    if (!post) return null;
+    if (post.visibility === 'DRAFT' && post.authorId !== viewerId) return null;
+    return toApiPost(post);
   }
 
   async create(userId: string, dto: CreatePostDto) {
@@ -119,6 +137,10 @@ export class PostService {
         kind: toDbKind(dto.kind),
         category: dto.category,
         data: dto.data as Prisma.InputJsonValue,
+        visibility: dto.visibility ? toDbVisibility(dto.visibility) : undefined,
+        commentsEnabled: dto.commentsEnabled,
+        likesEnabled: dto.likesEnabled,
+        searchable: dto.searchable,
       },
       include: { author: { select: authorSelect } },
     });

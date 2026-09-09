@@ -17,6 +17,7 @@ export class PostController {
 
   @Get()
   findAll(
+    @CurrentUserId() viewerId: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
     @Query('authorUsername') authorUsername?: string,
@@ -39,6 +40,7 @@ export class PostController {
     @Query('careerGroup') careerGroup?: string,
   ) {
     return this.postService.findAll({
+      viewerId,
       cursor,
       limit: limit ? Number(limit) : undefined,
       authorUsername,
@@ -52,8 +54,8 @@ export class PostController {
   // Dat SAU @Get() findAll - khong xung dot vi khac so segment URL
   // (/posts vs /posts/:id), thu tu khai bao khong anh huong.
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    const post = await this.postService.findOne(id);
+  async findOne(@CurrentUserId() viewerId: string, @Param('id') id: string) {
+    const post = await this.postService.findOne(id, viewerId);
     if (!post) throw new NotFoundException();
     return post;
   }

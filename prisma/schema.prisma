@@ -1384,3 +1384,192 @@ model QuestionAnswer {
   createdAt  DateTime @default(now())
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
+
+// ============================================================================
+// TRACKING (2026-09-09) - khu vuc lap ke hoach + nang luong ca nhan, 7 module
+// (Goal Compass/Weekly Planner/Daily Command Center/Energy Tracker/
+// Accountability Hub/Wellness Engine/Analytics). Moi userId o day la CHU SO
+// HUU DUY NHAT xem duoc (khong can AdminGuard/ownership-check phuc tap nhu
+// Diary) - TRU TrackingGroup/TrackingGroupSession can check thanh vien truoc
+// khi cho xem, xem tracking/accountability/*.
+// ============================================================================
+
+enum TrackingTimeBlockKind {
+  FOCUSED
+  GENERAL
+  LIFE
+  BUFFER
+}
+
+enum TrackingSkipReason {
+  AVOIDANCE
+  OUT_OF_TIME
+  INTERRUPTED
+  MISESTIMATED
+}
+
+model TrackingGoal {
+  id                    String              @id @default(uuid())
+  userId                String
+  title                 String
+  // Tu do (vd "Học tập"/"Sức khoẻ"/"Kỹ năng mềm") - khong phai enum co dinh,
+  // khac PostCategory (Tracking la khong gian rieng, khong dung chung
+  // taxonomy Knowledge World cua Post).
+  category              String
+  startDate             DateTime?           @db.Date
+  targetDate            DateTime?           @db.Date
+  // Priority Matrix 2x2 (Quan trong x Kiem soat duoc) - 2 truc doc lap.
+  important             Boolean             @default(true)
+  controllable          Boolean             @default(true)
+  // Flow "day du" - Vi sao muc tieu nay quan trong (Define stage) + gio du
+  // kien/tuan (dung cho Reality Check, xem TrackingSettings).
+  why                   String?
+  estimatedHoursPerWeek Float?
+  milestones            TrackingMilestone[]
+  steps                 TrackingGoalStep[]
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@index([userId, targetDate])
+}
+
+// Tang giua Goal va Action (TrackingGoalStep) - "De dat muc tieu nay, nhung
+// moc nao can hoan thanh?" (Decompose stage). Step CU (tao truoc khi co
+// tang nay) van goalId truc tiep, milestoneId null - xem TrackingGoalStep.
+model TrackingMilestone {
+  id             String             @id @default(uuid())
+  goalId         String
+  goal           TrackingGoal       @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  title          String
+  orderIndex     Int                @default(0)
+  createdAt      DateTime           @default(now())
+  weeklyGoalNote String?
+  steps          TrackingGoalStep[]
+
+  @@index([goalId, orderIndex])
+}
+
+model TrackingGoalStep {
+  id               String             @id @default(uuid())
+  goalId           String
+  goal             TrackingGoal       @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  // Null = step "cu" truoc khi co Milestone (tuong thich nguoc), hoac step
+  // nguoi dung co tinh khong gan milestone nao.
+  milestoneId      String?
+  milestone        TrackingMilestone? @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  title            String
+  dueDate          DateTime?          @db.Date
+  done             Boolean            @default(false)
+  orderIndex       Int                @default(0)
+  // Dung cho Reality Check (tong gio can vs gio co that) - xem
+  // TrackingSettings/tracking-goal.service.ts.
+  estimatedMinutes Int?
+
+  @@index([goalId, orderIndex])
+  @@index([milestoneId, orderIndex])
+}
+
+// Reality Check - "gio ranh/tuan" nguoi dung tu khai bao, so voi tong gio
+// can cua moi TrackingGoalStep chua xong. 1 dong/user (khong can lich su).
+model TrackingSettings {
+  userId               String @id
+  weeklyAvailableHours Float  @default(20)
+}
+
+model TrackingTimeBlock {
+  id          String                @id @default(uuid())
+  userId      String
+  date        DateTime              @db.Date
+  // Phut tinh tu 00:00 (vd 9:30 = 570) - don gian hoa luu tru/so sanh so voi
+  // luu DateTime day du cho 1 gio-trong-ngay.
+  startMinute Int
+  endMinute   Int
+  label       String
+  kind        TrackingTimeBlockKind @default(GENERAL)
+  goalStepId  String?
+
+  @@index([userId, date])
+}
+
+model TrackingTask {
+  id               String              @id @default(uuid())
+  userId           String
+  date             DateTime            @db.Date
+  title            String
+  timeBlockId      String?
+  estimatedMinutes Int?
+  done             Boolean             @default(false)
+  // "Non-Negotiable Pin" - MVP chi la nhan/vien do, CHUA co modal chan cung
+  // ep chia nho (xem plan "Khong lam lan nay").
+  pinned           Boolean             @default(false)
+  skipReason       TrackingSkipReason?
+  reviewNote       String?
+  createdAt        DateTime            @default(now())
+  // So lan da "Doi sang mai" - Vong Ngay: khi >=2 (sang ngay thu 3), hero
+  // card o DailyCommandCenterShell.tsx chuyen sang khung "rescue" goi y buoc
+  // khoi dong nho hon thay vi ep lam het task goc.
+  postponedCount   Int                 @default(0)
+
+  @@index([userId, date])
+}
+
+model TrackingEnergyCheckin {
+  id        String   @id @default(uuid())
+  userId    String
+  checkedAt DateTime @default(now())
+  // Ca 3 truc 1-5, khong validate range o DB (validate o DTO backend).
+  physical  Int
+  emotional Int
+  mental    Int
+
+  @@index([userId, checkedAt])
+}
+
+model TrackingWellnessLog {
+  id              String   @id @default(uuid())
+  userId          String
+  date            DateTime @db.Date
+  sleepHours      Float?
+  sleepQuality    Int?
+  napMinutes      Int?
+  exerciseMinutes Int?
+  mealsLogged     Int      @default(0)
+  notes           String?
+
+  // 1 log/ngay/user - PUT tracking/wellness/:date la upsert dua vao unique nay.
+  @@unique([userId, date])
+}
+
+model TrackingGroup {
+  id          String                 @id @default(uuid())
+  name        String
+  createdById String
+  // Ma moi cong khai (khong phai token bi mat cao) - chia se link
+  // /tracking/accountability?join=<code>, don gian hon he thong invite rieng.
+  inviteCode  String                 @unique @default(uuid())
+  members     TrackingGroupMember[]
+  sessions    TrackingGroupSession[]
+  createdAt   DateTime               @default(now())
+}
+
+model TrackingGroupMember {
+  groupId  String
+  group    TrackingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId   String
+  joinedAt DateTime      @default(now())
+
+  @@id([groupId, userId])
+}
+
+model TrackingGroupSession {
+  id        String        @id @default(uuid())
+  groupId   String
+  group     TrackingGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  userId    String
+  goalText  String
+  completed Boolean       @default(false)
+  startedAt DateTime      @default(now())
+  endedAt   DateTime?
+
+  @@index([groupId, startedAt])
+}

@@ -26,11 +26,13 @@ import { ChecklistModule } from './checklist/checklist.module';
 import { ObjectiveModule } from './objective/objective.module';
 import { NotificationModule } from './notification/notification.module';
 import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
+import { PostAssistantModule } from './post-assistant/post-assistant.module';
 import { ChatModule } from './chat/chat.module';
 import { UploadModule } from './upload/upload.module';
 import { GifModule } from './gif/gif.module';
 import { BooksModule } from './books/books.module';
 import { DiaryModule } from './diary/diary.module';
+import { TrackingModule } from './tracking/tracking.module';
 
 @Module({
   imports: [
@@ -62,11 +64,13 @@ import { DiaryModule } from './diary/diary.module';
     ObjectiveModule,
     NotificationModule,
     AiAssistantModule,
+    PostAssistantModule,
     ChatModule,
     UploadModule,
     GifModule,
     BooksModule,
     DiaryModule,
+    TrackingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

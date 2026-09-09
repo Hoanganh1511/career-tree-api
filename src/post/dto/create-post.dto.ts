@@ -1,5 +1,12 @@
-import { IsIn, IsNotEmptyObject, IsObject, IsOptional } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsNotEmptyObject,
+  IsObject,
+  IsOptional,
+} from 'class-validator';
 import { POST_KINDS, type PostKindApi } from '../post-kind.util';
+import { POST_VISIBILITIES, type PostVisibilityApi } from '../post-visibility.util';
 import { PostCategory } from '../../../generated/prisma/client';
 
 const POST_CATEGORIES = Object.values(PostCategory);
@@ -21,4 +28,23 @@ export class CreatePostDto {
   @IsObject()
   @IsNotEmptyObject()
   data!: Record<string, unknown>;
+
+  // Compose Giai doan 2 - cot THAT (khac `data` o tren), khong phai shape
+  // rieng tung kind. Optional: khong gui thi Prisma tu ap @default cua cot
+  // (PUBLIC/true/true/true) - xem post.service.ts create().
+  @IsOptional()
+  @IsIn(POST_VISIBILITIES)
+  visibility?: PostVisibilityApi;
+
+  @IsOptional()
+  @IsBoolean()
+  commentsEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  likesEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  searchable?: boolean;
 }
