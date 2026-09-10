@@ -1,4 +1,4 @@
-import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { IsOptional, IsString, IsUrl, Matches, MaxLength } from 'class-validator';
 
 // Redesign trang Settings - PATCH /users/me. Tat ca optional (chi gui field
 // nao muon doi) - displayName/username nam tren User, con lai nam tren
@@ -42,4 +42,17 @@ export class UpdateProfileDto {
   @IsString()
   @MaxLength(100)
   role?: string;
+
+  // "Đổi ảnh" that (Settings + ProfileSidebar) - URL tra ve tu POST /uploads
+  // (kind=image, S3 that, xem UploadService) da upload SAN o client, DTO nay
+  // chi luu lai URL, khong nhan file truc tiep.
+  @IsOptional()
+  @IsUrl()
+  @MaxLength(500)
+  avatarUrl?: string;
+
+  @IsOptional()
+  @IsUrl()
+  @MaxLength(500)
+  coverImageUrl?: string;
 }

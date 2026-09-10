@@ -52,12 +52,16 @@ export class UserService {
 
   async syncUser(dto: SyncUserDto): Promise<{ id: string; username: string }> {
     return this.prisma.$transaction(async (tx) => {
-      const user = await tx.user.upsert({
+      let user = await tx.user.upsert({
         where: { googleId: dto.googleId },
-        // avatarUrl luon dong bo lai theo Google (nguon duy nhat hien tai) -
-        // username thi KHONG, chi sinh 1 LAN duy nhat khi con null (xem duoi),
-        // tranh ghi de neu sau nay them tinh nang tu doi username rieng.
-        update: { email: dto.email, name: dto.name, avatarUrl: dto.avatarUrl },
+        // avatarUrl KHONG con dong bo lai moi lan dang nhap (truoc day luon
+        // ghi de theo Google) - tu khi co "Đổi ảnh" that o Settings
+        // (PATCH /users/me), ghi de vo dieu kien se xoa mat avatar tuy
+        // chinh cua nguoi dung o lan dang nhap ke tiep. Gio dung dung quy
+        // uoc nhu username: chi dat avatarUrl 1 LAN luc TAO moi, update
+        // chi doi email/name. Neu user cu van dang null (chua tung dat) se
+        // duoc backfill tu Google ben duoi.
+        update: { email: dto.email, name: dto.name },
         create: {
           googleId: dto.googleId,
           email: dto.email,
@@ -65,6 +69,13 @@ export class UserService {
           avatarUrl: dto.avatarUrl,
         },
       });
+
+      if (!user.avatarUrl && dto.avatarUrl) {
+        user = await tx.user.update({
+          where: { id: user.id },
+          data: { avatarUrl: dto.avatarUrl },
+        });
+      }
 
       // User dong bo qua Google KHONG co san username (Google chi tra
       // googleId/email/name/picture) - can 1 gia tri de dung trong URL
@@ -171,12 +182,17 @@ export class UserService {
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     try {
       await this.prisma.$transaction(async (tx) => {
-        if (dto.displayName !== undefined || dto.username !== undefined) {
+        if (
+          dto.displayName !== undefined ||
+          dto.username !== undefined ||
+          dto.avatarUrl !== undefined
+        ) {
           await tx.user.update({
             where: { id: userId },
             data: {
               name: dto.displayName,
               username: dto.username,
+              avatarUrl: dto.avatarUrl,
             },
           });
         }
@@ -185,7 +201,8 @@ export class UserService {
           dto.location !== undefined ||
           dto.websiteUrl !== undefined ||
           dto.pronouns !== undefined ||
-          dto.role !== undefined;
+          dto.role !== undefined ||
+          dto.coverImageUrl !== undefined;
         if (hasProfileFields) {
           await tx.userProfile.upsert({
             where: { userId },
@@ -196,6 +213,7 @@ export class UserService {
               websiteUrl: dto.websiteUrl,
               pronouns: dto.pronouns,
               role: dto.role,
+              coverImageUrl: dto.coverImageUrl,
             },
             update: {
               bio: dto.bio,
@@ -203,6 +221,7 @@ export class UserService {
               websiteUrl: dto.websiteUrl,
               pronouns: dto.pronouns,
               role: dto.role,
+              coverImageUrl: dto.coverImageUrl,
             },
           });
         }
