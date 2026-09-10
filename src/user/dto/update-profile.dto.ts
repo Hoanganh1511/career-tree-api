@@ -1,4 +1,5 @@
 import {
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUrl,
@@ -12,6 +13,7 @@ import {
 // UserProfile (upsert, xem UserService.updateProfile).
 export class UpdateProfileDto {
   @IsOptional()
+  @IsNotEmpty({ message: 'Tên hiển thị không được để trống' })
   @IsString()
   @MaxLength(100)
   displayName?: string;
@@ -35,8 +37,11 @@ export class UpdateProfileDto {
   @MaxLength(100)
   location?: string;
 
+  // FE luon gui kem tien to https:// (xem EditProfileModal.tsx) - chi bo qua
+  // @IsUrl khi rong (nguoi dung xoa het, muon bo trong website).
   @IsOptional()
-  @IsString()
+  @ValidateIf((o) => !!o.websiteUrl)
+  @IsUrl()
   @MaxLength(200)
   websiteUrl?: string;
 
