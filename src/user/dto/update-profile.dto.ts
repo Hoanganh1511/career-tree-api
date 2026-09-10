@@ -1,4 +1,11 @@
-import { IsOptional, IsString, IsUrl, Matches, MaxLength } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsUrl,
+  Matches,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 
 // Redesign trang Settings - PATCH /users/me. Tat ca optional (chi gui field
 // nao muon doi) - displayName/username nam tren User, con lai nam tren
@@ -45,14 +52,19 @@ export class UpdateProfileDto {
 
   // "Đổi ảnh" that (Settings + ProfileSidebar) - URL tra ve tu POST /uploads
   // (kind=image, S3 that, xem UploadService) da upload SAN o client, DTO nay
-  // chi luu lai URL, khong nhan file truc tiep.
+  // chi luu lai URL, khong nhan file truc tiep. `null` = XOA anh (khac voi
+  // undefined = khong gui field nay, giu nguyen - xem UserService.
+  // updateProfile dung `!== undefined` de phan biet 2 truong hop). ValidateIf
+  // bo qua @IsUrl khi gia tri la null, van bat buoc URL hop le khi la string.
   @IsOptional()
+  @ValidateIf((o) => o.avatarUrl !== null)
   @IsUrl()
   @MaxLength(500)
-  avatarUrl?: string;
+  avatarUrl?: string | null;
 
   @IsOptional()
+  @ValidateIf((o) => o.coverImageUrl !== null)
   @IsUrl()
   @MaxLength(500)
-  coverImageUrl?: string;
+  coverImageUrl?: string | null;
 }
