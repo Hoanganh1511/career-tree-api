@@ -176,6 +176,16 @@ export class UploadService {
   // object mo coi, khong Message nao tham chieu toi. Chi xoa object CU HON
   // `olderThanMinutes` (mac dinh 60) de khong xoa nham file dang trong luc
   // upload/dang cho client goi sendMessage.
+  //
+  // QUAN TRONG: kind "image" (KIND_TO_FOLDER o tren) dung CHUNG 1 folder
+  // "chat-images" cho CA anh chat LAN avatar/cover (ProfileSidebar.tsx/
+  // SettingsSections.tsx tai dung endpoint nay, xem lich su - endpoint nay
+  // von CHI thiet ke cho chat). Vi vay job nay tung CHI doi chieu voi
+  // Message.attachmentUrl - avatar/cover luu vao User.avatarUrl/
+  // UserProfile.coverImageUrl thi KHONG duoc coi la "con tham chieu", bi xoa
+  // sau dung 60 phut du dang la avatar THAT dang dung (bug that, gay avatar
+  // vo hinh/lech header-profile da gap). Phai doi chieu voi CA 2 bang duoi
+  // day, khong chi Message.
   async deleteOrphanedUploads(
     olderThanMinutes = 60,
   ): Promise<{ scanned: number; deleted: number }> {
@@ -202,17 +212,30 @@ export class UploadService {
 
     if (candidates.length === 0) return { scanned: 0, deleted: 0 };
 
-    // Doi chieu voi DB - key con duoc THAM CHIEU (nam trong attachmentUrl
-    // cua BAT KY message nao) thi GIU LAI.
-    const referenced = await this.prisma.message.findMany({
-      where: { attachmentUrl: { not: null } },
-      select: { attachmentUrl: true },
-    });
+    // Doi chieu voi DB - key con duoc THAM CHIEU (attachmentUrl cua Message,
+    // HOAC avatarUrl cua User, HOAC coverImageUrl cua UserProfile) thi GIU LAI.
+    const [messages, users, profiles] = await Promise.all([
+      this.prisma.message.findMany({
+        where: { attachmentUrl: { not: null } },
+        select: { attachmentUrl: true },
+      }),
+      this.prisma.user.findMany({
+        where: { avatarUrl: { not: null } },
+        select: { avatarUrl: true },
+      }),
+      this.prisma.userProfile.findMany({
+        where: { coverImageUrl: { not: null } },
+        select: { coverImageUrl: true },
+      }),
+    ]);
+    const referencedUrls = [
+      ...messages.map((m) => m.attachmentUrl),
+      ...users.map((u) => u.avatarUrl),
+      ...profiles.map((p) => p.coverImageUrl),
+    ];
     const referencedKeys = new Set(
-      referenced
-        .map((m) =>
-          m.attachmentUrl ? this.extractKeyFromUrl(m.attachmentUrl) : null,
-        )
+      referencedUrls
+        .map((url) => (url ? this.extractKeyFromUrl(url) : null))
         .filter((k): k is string => Boolean(k)),
     );
 
