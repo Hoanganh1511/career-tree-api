@@ -52,15 +52,17 @@ export class UserService {
 
   async syncUser(dto: SyncUserDto): Promise<{ id: string; username: string }> {
     return this.prisma.$transaction(async (tx) => {
-      let user = await tx.user.upsert({
+      // avatarUrl CHI dat 1 LAN DUY NHAT luc TAO tai khoan (create) - moi lan
+      // dang nhap sau do (update) KHONG bao gio dong toi avatarUrl nua, du
+      // dang null hay khong. Truoc day co 1 nhanh "backfill" (dat lai tu
+      // Google neu avatarUrl dang null) danh cho user cu tao truoc khi tinh
+      // nang nay ton tai - nhung nhanh do vo tinh coi "null vi nguoi dung
+      // CHU DICH bam Xóa ảnh" (xem ProfileImageViewer.tsx) giong het "null vi
+      // chua tung co anh", nen lan dang nhap Google ke tiep se AM THAM dien
+      // lai avatar cu ma nguoi dung vua xoa - sai voi nguyen tac "1 nguon
+      // duy nhat, chi nguoi dung tu quyet dinh avatar cua minh qua app".
+      const user = await tx.user.upsert({
         where: { googleId: dto.googleId },
-        // avatarUrl KHONG con dong bo lai moi lan dang nhap (truoc day luon
-        // ghi de theo Google) - tu khi co "Đổi ảnh" that o Settings
-        // (PATCH /users/me), ghi de vo dieu kien se xoa mat avatar tuy
-        // chinh cua nguoi dung o lan dang nhap ke tiep. Gio dung dung quy
-        // uoc nhu username: chi dat avatarUrl 1 LAN luc TAO moi, update
-        // chi doi email/name. Neu user cu van dang null (chua tung dat) se
-        // duoc backfill tu Google ben duoi.
         update: { email: dto.email, name: dto.name },
         create: {
           googleId: dto.googleId,
@@ -69,13 +71,6 @@ export class UserService {
           avatarUrl: dto.avatarUrl,
         },
       });
-
-      if (!user.avatarUrl && dto.avatarUrl) {
-        user = await tx.user.update({
-          where: { id: user.id },
-          data: { avatarUrl: dto.avatarUrl },
-        });
-      }
 
       // User dong bo qua Google KHONG co san username (Google chi tra
       // googleId/email/name/picture) - can 1 gia tri de dung trong URL
