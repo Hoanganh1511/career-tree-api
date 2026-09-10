@@ -1,8 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import { SyncUserDto } from './dto/sync-user.dto';
 import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { FollowService } from 'src/follow/follow.service';
 
 @Injectable()
@@ -23,6 +28,7 @@ export class UserService {
         location: true,
         websiteUrl: true,
         pronouns: true,
+        role: true,
         postCount: true,
       },
     },
@@ -149,10 +155,73 @@ export class UserService {
       location: target.profile?.location ?? null,
       websiteUrl: target.profile?.websiteUrl ?? null,
       pronouns: target.profile?.pronouns ?? null,
+      role: target.profile?.role ?? null,
       postCount: target.profile?.postCount ?? 0,
       isSelf: viewerId === target.id,
       isFollowing: isFollowing !== null,
     };
+  }
+
+  // Redesign Settings - PATCH /users/me. displayName/username nam tren
+  // User, con lai (bio/location/websiteUrl/pronouns/role) nam tren
+  // UserProfile - upsert vi user cu co the chua tung co row UserProfile nao
+  // (bang nay tao lazy, khong phai luc nao cung ton tai san cho moi User).
+  // Bat loi trung username (P2002) roi ban ra ConflictException do frontend
+  // hien thong bao ro rang, thay vi 500 chung chung.
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        if (dto.displayName !== undefined || dto.username !== undefined) {
+          await tx.user.update({
+            where: { id: userId },
+            data: {
+              name: dto.displayName,
+              username: dto.username,
+            },
+          });
+        }
+        const hasProfileFields =
+          dto.bio !== undefined ||
+          dto.location !== undefined ||
+          dto.websiteUrl !== undefined ||
+          dto.pronouns !== undefined ||
+          dto.role !== undefined;
+        if (hasProfileFields) {
+          await tx.userProfile.upsert({
+            where: { userId },
+            create: {
+              userId,
+              bio: dto.bio,
+              location: dto.location,
+              websiteUrl: dto.websiteUrl,
+              pronouns: dto.pronouns,
+              role: dto.role,
+            },
+            update: {
+              bio: dto.bio,
+              location: dto.location,
+              websiteUrl: dto.websiteUrl,
+              pronouns: dto.pronouns,
+              role: dto.role,
+            },
+          });
+        }
+      });
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        throw new ConflictException('Tên người dùng đã được sử dụng');
+      }
+      throw err;
+    }
+
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { username: true },
+    });
+    return this.getProfileByUsername(userId, user.username!);
   }
 
   // Tim theo ten hien thi/username (mot phan, khong phan biet hoa thuong) VA

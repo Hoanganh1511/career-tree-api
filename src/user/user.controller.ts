@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -13,6 +14,7 @@ import { CurrentUserId } from '../auth/current-user.decorator';
 import { UserService } from './user.service';
 import { SyncUserDto } from './dto/sync-user.dto';
 import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller('users')
 export class UserController {
@@ -38,6 +40,14 @@ export class UserController {
   @Get('me')
   getSelf(@CurrentUserId() userId: string) {
     return this.userService.getSelf(userId);
+  }
+
+  @Patch('me')
+  updateProfile(
+    @CurrentUserId() userId: string,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    return this.userService.updateProfile(userId, dto);
   }
 
   @Post('me/onboarding')

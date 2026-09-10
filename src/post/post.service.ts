@@ -47,6 +47,7 @@ export function toApiPost(post: PostWithAuthor) {
       reposts: post.repostsCount,
     },
     category: post.category,
+    excerpt: post.excerpt,
     // Compose Giai doan 2 - cot THAT (sibling voi cac field tren, KHONG nam
     // trong `data`) - xem CreatePostDto.
     visibility: toApiVisibility(post.visibility),
@@ -137,6 +138,7 @@ export class PostService {
         kind: toDbKind(dto.kind),
         category: dto.category,
         data: dto.data as Prisma.InputJsonValue,
+        excerpt: dto.excerpt,
         visibility: dto.visibility ? toDbVisibility(dto.visibility) : undefined,
         commentsEnabled: dto.commentsEnabled,
         likesEnabled: dto.likesEnabled,

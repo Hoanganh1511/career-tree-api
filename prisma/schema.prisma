@@ -316,6 +316,10 @@ model Post {
   // nhung field do gio lay theo KIND tu POST_KIND_META o frontend thay vi luu
   // rieng tung post, tranh phai serialize component icon (khong the luu DB).
   data             Json
+  // Compose "redesign mobile" - nguoi dung tu viet tom tat (truoc day
+  // PostService tu cat 600 ky tu dau content). Optional: neu client khong
+  // gui, PostService van fallback tu cat nhu cu (xem post.service.ts).
+  excerpt          String?
   // Compose Giai doan 2 - visibility that (loc o PostService.findAll/findOne,
   // xem post.service.ts), 3 co cho phep/tim kiem CHI la du lieu THAT duoc luu
   // lai, CHUA co he thong Comment/Reaction/tim kiem Post nao tieu thu chung -
@@ -348,6 +352,10 @@ model UserProfile {
   location      String?
   websiteUrl    String?
   pronouns      String?
+  // Redesign Settings - "Vai trò" (vd "Software Engineer") hien trang thai
+  // cong khai, KHONG lien quan yearsOfExperience (Dashboard Skill Tree) tren
+  // User.
+  role          String?
   postCount     Int      @default(0)
   updatedAt     DateTime @updatedAt
 }

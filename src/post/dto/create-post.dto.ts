@@ -4,6 +4,8 @@ import {
   IsNotEmptyObject,
   IsObject,
   IsOptional,
+  IsString,
+  MaxLength,
 } from 'class-validator';
 import { POST_KINDS, type PostKindApi } from '../post-kind.util';
 import { POST_VISIBILITIES, type PostVisibilityApi } from '../post-visibility.util';
@@ -47,4 +49,11 @@ export class CreatePostDto {
   @IsOptional()
   @IsBoolean()
   searchable?: boolean;
+
+  // Redesign Compose mobile - nguoi dung tu viet tom tat. Optional: khong
+  // gui thi PostService fallback tu cat content nhu cu (xem post.service.ts).
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  excerpt?: string;
 }
