@@ -171,6 +171,22 @@ export class UploadService {
     return url.startsWith(prefix) ? url.slice(prefix.length) : null;
   }
 
+  // Quet DE QUY 1 gia tri JSON bat ky (Post.data - khong co type co dinh,
+  // moi kind gia (content/image.url/images[].url/video.thumbnailUrl/
+  // coverImage - xem post-display.ts o frontend) tim moi string trong Object/
+  // Array long nhau - dung thay vi liet ke tung key rieng de KHONG bo sot khi
+  // co kind/field moi sau nay (chinh vi liet ke thieu 1 lan truoc day ma bug
+  // duoi day xay ra).
+  private collectStrings(value: unknown, out: string[]): void {
+    if (typeof value === 'string') {
+      out.push(value);
+    } else if (Array.isArray(value)) {
+      for (const v of value) this.collectStrings(v, out);
+    } else if (value && typeof value === 'object') {
+      for (const v of Object.values(value)) this.collectStrings(v, out);
+    }
+  }
+
   // Don rac S3: client co the upload thanh cong len S3 (ca 2 duong) nhung
   // KHONG bao gio goi sendMessage sau do (mat mang/dong tab giua chung) ->
   // object mo coi, khong Message nao tham chieu toi. Chi xoa object CU HON
@@ -178,14 +194,16 @@ export class UploadService {
   // upload/dang cho client goi sendMessage.
   //
   // QUAN TRONG: kind "image" (KIND_TO_FOLDER o tren) dung CHUNG 1 folder
-  // "chat-images" cho CA anh chat LAN avatar/cover (ProfileSidebar.tsx/
-  // SettingsSections.tsx tai dung endpoint nay, xem lich su - endpoint nay
-  // von CHI thiet ke cho chat). Vi vay job nay tung CHI doi chieu voi
-  // Message.attachmentUrl - avatar/cover luu vao User.avatarUrl/
-  // UserProfile.coverImageUrl thi KHONG duoc coi la "con tham chieu", bi xoa
-  // sau dung 60 phut du dang la avatar THAT dang dung (bug that, gay avatar
-  // vo hinh/lech header-profile da gap). Phai doi chieu voi CA 2 bang duoi
-  // day, khong chi Message.
+  // "chat-images" cho MOI noi dung anh trong app (chat, avatar/cover ho so,
+  // anh bia bai viet qua Composer.tsx, anh bia bo suu tap qua
+  // CreateCollectionModal.tsx - deu goi chung uploadPostImageAction/endpoint
+  // nay, xem lich su - endpoint von CHI thiet ke cho chat). Job nay TUNG CHI
+  // doi chieu voi Message.attachmentUrl - moi tham chieu khac (avatar/cover ho
+  // so, anh bia bai viet trong Post.data JSON, anh bia bo suu tap trong
+  // PostCollection.coverImageUrl) KHONG duoc coi la "con tham chieu", bi xoa
+  // sau dung 60 phut du dang la anh THAT dang dung (bug that da gap 1 lan voi
+  // avatar, gio lap lai voi anh bia bai viet - xem docs/engineering-log.md).
+  // Phai doi chieu voi DU CA 5 nguon duoi day, khong chi Message.
   async deleteOrphanedUploads(
     olderThanMinutes = 60,
   ): Promise<{ scanned: number; deleted: number }> {
@@ -212,9 +230,11 @@ export class UploadService {
 
     if (candidates.length === 0) return { scanned: 0, deleted: 0 };
 
-    // Doi chieu voi DB - key con duoc THAM CHIEU (attachmentUrl cua Message,
-    // HOAC avatarUrl cua User, HOAC coverImageUrl cua UserProfile) thi GIU LAI.
-    const [messages, users, profiles] = await Promise.all([
+    // Doi chieu voi DB - key con duoc THAM CHIEU o BAT KY nguon nao duoi day
+    // thi GIU LAI: attachmentUrl (Message), avatarUrl (User), coverImageUrl
+    // (UserProfile), coverImageUrl (PostCollection), va MOI string long
+    // trong Post.data (chua URL anh bia/anh/video-thumbnail tuy kind).
+    const [messages, users, profiles, collections, posts] = await Promise.all([
       this.prisma.message.findMany({
         where: { attachmentUrl: { not: null } },
         select: { attachmentUrl: true },
@@ -227,11 +247,20 @@ export class UploadService {
         where: { coverImageUrl: { not: null } },
         select: { coverImageUrl: true },
       }),
+      this.prisma.postCollection.findMany({
+        where: { coverImageUrl: { not: null } },
+        select: { coverImageUrl: true },
+      }),
+      this.prisma.post.findMany({ select: { data: true } }),
     ]);
+    const postDataStrings: string[] = [];
+    for (const p of posts) this.collectStrings(p.data, postDataStrings);
     const referencedUrls = [
       ...messages.map((m) => m.attachmentUrl),
       ...users.map((u) => u.avatarUrl),
       ...profiles.map((p) => p.coverImageUrl),
+      ...collections.map((c) => c.coverImageUrl),
+      ...postDataStrings,
     ];
     const referencedKeys = new Set(
       referencedUrls
