@@ -317,20 +317,48 @@ message qua endpoint callback (mục 2, phần "chưa xây").
 (`@Cron(CronExpression.EVERY_HOUR)`, đăng ký qua `ScheduleModule.forRoot()`
 trong `app.module.ts`):
 
-1. List toàn bộ object S3 dưới prefix `chat-` có `LastModified` cũ hơn 60
-   phút (tránh xoá nhầm file đang trong lúc client upload xong nhưng chưa
-   kịp gọi `sendMessage`).
-2. Đối chiếu với `Message.attachmentUrl` trong DB — key nào **không** được
-   tham chiếu bởi bất kỳ Message nào thì xoá qua `DeleteObjectsCommand`
-   (batch, tối đa 1000 key/lần).
+1. List toàn bộ object S3 dưới prefix `chat-` có `LastModified` cũ hơn
+   ngưỡng (24 giờ — xem "Sự cố thật" bên dưới vì sao không phải 60 phút
+   nữa).
+2. Đối chiếu với **5 nguồn** tham chiếu trong DB (không chỉ riêng
+   `Message.attachmentUrl` — endpoint `chat-images` giờ dùng chung cho MỌI
+   ảnh trong app, xem comment `deleteOrphanedUploads()`): `Message.attachmentUrl`,
+   `User.avatarUrl`, `UserProfile.coverImageUrl`, `PostCollection.coverImageUrl`,
+   và mọi string lồng trong `Post.data` (JSON, quét đệ quy qua
+   `collectStrings()`). Key nào **không** khớp bất kỳ nguồn nào thì xoá qua
+   `DeleteObjectsCommand` (batch, tối đa 1000 key/lần).
 3. Best-effort — lỗi chỉ log, không làm crash app.
 
-**Giới hạn đã biết** (ghi lại để không phải đoán lại): ở quy mô lớn hơn
+**Sự cố thật đã gặp (2026-09-11) — race condition giữa lúc upload và lúc
+lưu DB:** người dùng tạo `PostCollection` mới, chọn ảnh bìa TRƯỚC (upload
+lên S3 ngay khi chọn file — xem `CreateCollectionModal.handleCoverChange`),
+rồi mới điền tên/mô tả/chủ đề và bấm "Tạo" SAU (lúc đó DB mới thật sự ghi
+`coverImageUrl`). Nếu khoảng cách giữa 2 bước này dài hơn ngưỡng cleanup
+(60 phút lúc đó), cron chạy đúng lúc object đã "đủ cũ" nhưng DB CHƯA tham
+chiếu (form chưa submit) → xoá nhầm. Người dùng sau đó bấm "Tạo" thành công,
+DB lưu lại 1 URL đã CHẾT vĩnh viễn, ảnh 403 (S3 trả AccessDenied thay vì 404
+cho request ẩn danh không có quyền `ListBucket`, dễ nhầm sang lỗi bucket
+policy/permissions — đã tốn khá nhiều bước loại trừ sai hướng mới tìm ra).
+
+Không có cách nào loại bỏ HOÀN TOÀN khoảng hở này chỉ bằng cách thêm nguồn
+tham chiếu (đã thử 2 lần trước với avatar rồi ảnh bài viết, vẫn lặp lại với
+ảnh bìa bộ sưu tập) — bản chất MỌI ảnh mới upload đều có 0 tham chiếu trong
+lúc người dùng còn đang soạn form, bất kể soạn bao nhiêu trường. Fix tạm:
+nâng ngưỡng lên **24 giờ** (đủ rộng cho hành vi thực tế: mở modal, đi làm
+việc khác, quay lại soạn tiếp) — đánh đổi giữ rác S3 lâu hơn 1 chút để đổi
+lấy không xoá nhầm ảnh đang dùng, chấp nhận được vì job này vốn chỉ để dọn
+rác, không gấp. Fix triệt để hơn (chưa làm, xem thêm nếu bug tái diễn ở
+ngưỡng 24h): gắn cờ "pending" ngay lúc upload (S3 object tag hoặc 1 bảng
+riêng), gỡ cờ khi record thật sự được tạo — cron chỉ xoá object CÒN cờ
+pending, loại bỏ khoảng hở thay vì chỉ nới rộng nó.
+
+**Giới hạn đã biết khác** (ghi lại để không phải đoán lại): ở quy mô lớn hơn
 nhiều (hàng chục nghìn upload/ngày), việc `ListObjectsV2` toàn bộ prefix mỗi
-giờ + tải toàn bộ `attachmentUrl` từ DB để so khớp trong bộ nhớ sẽ không mở
-rộng tốt — lúc đó nên chuyển sang: S3 Lifecycle rule tự xoá object có tag
-`pending=true` (gắn tag lúc sinh presigned URL, gỡ tag khi `sendMessage`
-thành công) sau X giờ, tránh phải quét+so khớp thủ công.
+giờ + tải toàn bộ dữ liệu tham chiếu từ DB để so khớp trong bộ nhớ sẽ không
+mở rộng tốt — lúc đó nên chuyển sang: S3 Lifecycle rule tự xoá object có tag
+`pending=true` (gắn tag lúc sinh presigned URL, gỡ tag khi record thật sự
+được tạo) sau X giờ, tránh phải quét+so khớp thủ công (trùng hướng fix triệt
+để ở trên — làm 1 lần giải quyết cả 2 vấn đề).
 
 ---
 

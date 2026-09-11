@@ -287,12 +287,20 @@ export class UploadService {
   }
 
   // Chay moi gio - best-effort, loi khong lam sap app (chi log). Bo qua im
-  // lang neu chua cau hinh S3 (dev/test khong co credentials).
+  // lang neu chua cau hinh S3 (dev/test khong co credentials). Nguong 24h
+  // (truoc la 60 phut) - bug THAT da gap: user upload anh bia TRUOC (luu S3
+  // ngay), roi moi dien ten/mo ta/chu de va bam "Tao" SAU - neu qua trinh do
+  // lau hon nguong (vd mo modal roi lam viec khac, quay lai sau), cron chay
+  // giua luc do thay object "chua ai tham chieu" (DB chua ghi coverImageUrl
+  // vi form chua submit) + "du cu" -> xoa oan, DB sau do luu lai 1 URL da
+  // chet vinh vien (xem docs/engineering-log.md 2026-09-11). 60 phut la qua
+  // ngan cho hanh vi nguoi dung thuc te; 24h an toan hon nhieu (job nay von
+  // chi de don rac, khong gap, tha giu rac lau hon con hon xoa nham).
   @Cron(CronExpression.EVERY_HOUR)
   async cleanupOrphanedUploadsJob() {
     if (!this.isConfigured) return;
     try {
-      const result = await this.deleteOrphanedUploads(60);
+      const result = await this.deleteOrphanedUploads(24 * 60);
       if (result.deleted > 0) {
         console.log(
           `[UploadService] don ${result.deleted}/${result.scanned} object S3 mo coi.`,
