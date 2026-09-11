@@ -28,7 +28,7 @@ type PostWithAuthor = Prisma.PostGetPayload<{
 // `timeAgo`: `following` khong con noi nao doc (bo tab Following tu lau),
 // `timeAgo` thay bang `createdAt` that - frontend tu tinh qua
 // formatRelativeTime() thay vi nhan chuoi "2h" dung san.
-export function toApiPost(post: PostWithAuthor, likedByMe = false) {
+export function toApiPost(post: PostWithAuthor, likedByMe = false, savedByMe = false) {
   return {
     id: post.id,
     kind: toApiKind(post.kind),
@@ -51,6 +51,10 @@ export function toApiPost(post: PostWithAuthor, likedByMe = false) {
     // ContestService (dung chung toApiPost, khong biet gi ve viewer) khong
     // phai truyen gi ma van chay dung.
     likedByMe,
+    // "Đã lưu" (SavedPost, tu 2026-09-13) - RIENG BIET voi PostCollection
+    // (bo suu tap tu dat ten) - xem ArticleActionBar.tsx enggo, nut Luu gio
+    // LUU/BO NGAY vao day, khong con hien popover chon bo suu tap.
+    savedByMe,
     category: post.category,
     title: post.title,
     excerpt: post.excerpt,
@@ -119,12 +123,20 @@ export class PostService {
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       include: { author: { select: authorSelect } },
     });
-    const likedRows = await this.prisma.postLike.findMany({
-      where: { userId: viewerId, postId: { in: posts.map((p) => p.id) } },
-      select: { postId: true },
-    });
+    const postIds = posts.map((p) => p.id);
+    const [likedRows, savedRows] = await Promise.all([
+      this.prisma.postLike.findMany({
+        where: { userId: viewerId, postId: { in: postIds } },
+        select: { postId: true },
+      }),
+      this.prisma.savedPost.findMany({
+        where: { userId: viewerId, postId: { in: postIds } },
+        select: { postId: true },
+      }),
+    ]);
     const likedPostIds = new Set(likedRows.map((r) => r.postId));
-    return posts.map((p) => toApiPost(p, likedPostIds.has(p.id)));
+    const savedPostIds = new Set(savedRows.map((r) => r.postId));
+    return posts.map((p) => toApiPost(p, likedPostIds.has(p.id), savedPostIds.has(p.id)));
   }
 
   // Dung cho trang chi tiet 1 bai viet (enggo: /p/[id]) - tra ve null (khong
@@ -139,13 +151,18 @@ export class PostService {
     });
     if (!post) return null;
     if (post.visibility === 'DRAFT' && post.authorId !== viewerId) return null;
-    const liked = await this.prisma.postLike.findUnique({
-      where: { userId_postId: { userId: viewerId, postId: id } },
-    });
+    const [liked, saved] = await Promise.all([
+      this.prisma.postLike.findUnique({
+        where: { userId_postId: { userId: viewerId, postId: id } },
+      }),
+      this.prisma.savedPost.findUnique({
+        where: { userId_postId: { userId: viewerId, postId: id } },
+      }),
+    ]);
     // isOwner - dung de gate trang Sua bai (enggo: /compose/[id]), cung
     // convention voi Document (doc.isOwner, xem document.service.ts).
     return {
-      ...toApiPost(post, Boolean(liked)),
+      ...toApiPost(post, Boolean(liked), Boolean(saved)),
       isOwner: post.authorId === viewerId,
     };
   }
@@ -184,6 +201,57 @@ export class PostService {
       }),
     ]);
     return { liked: true, likesCount: updated.likesCount };
+  }
+
+  // "Đã lưu" (SavedPost) - KHAC PostLike: khong co counter cong khai nao
+  // tren Post can dong bo (savedByMe chi hien voi CHINH nguoi xem), nen
+  // khong can $transaction - 1 thao tac create/delete don la du.
+  async toggleSave(userId: string, postId: string) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { id: true },
+    });
+    if (!post) throw new NotFoundException(`Post ${postId} not found`);
+
+    const existing = await this.prisma.savedPost.findUnique({
+      where: { userId_postId: { userId, postId } },
+    });
+    if (existing) {
+      await this.prisma.savedPost.delete({
+        where: { userId_postId: { userId, postId } },
+      });
+      return { saved: false };
+    }
+    await this.prisma.savedPost.create({ data: { userId, postId } });
+    return { saved: true };
+  }
+
+  // Danh sach "Đã lưu" cua CHINH nguoi xem (enggo: tab /u/[username]/saved,
+  // CHI hien khi isSelf - xem ProfileTabBar.tsx, danh sach nay la RIENG TU,
+  // khong cong khai cho nguoi khac xem giong PostCollection). Cursor tren
+  // composite key (userId_postId, giong cach postLike.findUnique dang dung)
+  // vi SavedPost khong co cot `id` rieng.
+  async listSaved(viewerId: string, cursor?: string, limit = 30) {
+    const rows = await this.prisma.savedPost.findMany({
+      where: { userId: viewerId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      ...(cursor && {
+        cursor: { userId_postId: { userId: viewerId, postId: cursor } },
+        skip: 1,
+      }),
+      include: { post: { include: { author: { select: authorSelect } } } },
+    });
+    const posts = rows.map((r) => r.post);
+    const likedRows = await this.prisma.postLike.findMany({
+      where: { userId: viewerId, postId: { in: posts.map((p) => p.id) } },
+      select: { postId: true },
+    });
+    const likedPostIds = new Set(likedRows.map((r) => r.postId));
+    return {
+      items: posts.map((p) => toApiPost(p, likedPostIds.has(p.id), true)),
+      nextCursor: rows.length === limit ? rows[rows.length - 1].postId : null,
+    };
   }
 
   async create(userId: string, dto: CreatePostDto) {

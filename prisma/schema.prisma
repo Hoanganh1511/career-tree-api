@@ -78,6 +78,7 @@ model User {
   postComments                 PostComment[]
   postCommentLikes             PostCommentLike[]
   postLikes                    PostLike[]
+  savedPosts                   SavedPost[]
 }
 
 // Feed Trang chu - truoc day 100% mock o frontend (enggo/src/content/
@@ -348,6 +349,7 @@ model Post {
   collectionItems  PostCollectionItem[]
   comments         PostComment[]
   likes            PostLike[]
+  savedBy          SavedPost[]
   createdAt        DateTime             @default(now())
   updatedAt        DateTime             @updatedAt
 
@@ -369,6 +371,23 @@ model PostLike {
 
   @@id([userId, postId])
   @@index([postId])
+}
+
+// "Đã lưu" - danh sach bookmark DON GIAN, RIENG BIET voi PostCollection (bo
+// suu tap nguoi dung tu dat ten/gom nhom). Bam nut Luu tren bai la LUU/BO
+// NGAY vao day (khong hien popover chon bo suu tap nao ca) - PostCollection
+// van giu nguyen, khong lien quan. Cung khuon voi PostLike (composite key
+// userId+postId, khong id rieng). @@index([userId, createdAt]) de liet ke
+// "Bài đã lưu" cua 1 nguoi, moi nhat truoc, khong can COUNT/JOIN phu.
+model SavedPost {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, postId])
+  @@index([userId, createdAt])
 }
 
 enum PostCollectionVisibility {

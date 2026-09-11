@@ -53,6 +53,23 @@ export class PostController {
     });
   }
 
+  // Path co dinh "saved" PHAI khai bao TRUOC @Get(':id') - neu de sau, Nest
+  // se hieu "saved" la GIA TRI cua :id (khop findOne truoc) thay vi route
+  // rieng nay, dung convention da co voi post-collection.controller.ts
+  // ('mine').
+  @Get('saved')
+  listSaved(
+    @CurrentUserId() viewerId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.postService.listSaved(
+      viewerId,
+      cursor,
+      limit ? Number(limit) : undefined,
+    );
+  }
+
   // Dat SAU @Get() findAll - khong xung dot vi khac so segment URL
   // (/posts vs /posts/:id), thu tu khai bao khong anh huong.
   @Get(':id')
@@ -79,5 +96,10 @@ export class PostController {
   @Post(':id/like')
   toggleLike(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.postService.toggleLike(userId, id);
+  }
+
+  @Post(':id/save')
+  toggleSave(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.postService.toggleSave(userId, id);
   }
 }
