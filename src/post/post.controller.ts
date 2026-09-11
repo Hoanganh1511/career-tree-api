@@ -75,4 +75,9 @@ export class PostController {
   ) {
     return this.postService.update(userId, id, dto);
   }
+
+  @Post(':id/like')
+  toggleLike(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.postService.toggleLike(userId, id);
+  }
 }

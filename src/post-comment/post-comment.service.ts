@@ -24,6 +24,7 @@ function toApiComment(
       avatarUrl: string | null;
       verified: boolean;
     };
+    _count?: { replies: number };
   },
   viewerId: string,
   likedCommentIds: Set<string>,
@@ -43,6 +44,10 @@ function toApiComment(
     },
     isOwner: c.authorId === viewerId,
     likedByMe: likedCommentIds.has(c.id),
+    // CHI co gia tri that o comment GOC (findAllForPost co include _count) -
+    // reply (findReplies) khong tra field nay (luon undefined), vi UI hien
+    // tai gioi han reply CHI 1 cap (khong co "tra loi cua tra loi").
+    repliesCount: c._count?.replies,
   };
 }
 
@@ -62,13 +67,19 @@ export class PostCommentService {
     }
   }
 
-  // Lay TOAN BO comment (phang, khong cursor) - UI tu cat "Xem them" phia
-  // client, khong can phan trang that cho quy mo hien tai.
+  // CHI comment GOC (parentId null) - UI khong hien reply san nua, chi hien
+  // "Có N trả lời" (tu repliesCount duoi day), fetch that qua findReplies()
+  // khi nguoi dung bam vao (xem ArticleComments.tsx). Van khong cursor cho
+  // TANG GOC (UI tu cat "Xem thêm" phia client, quy mo hien tai chua can
+  // phan trang that o tang nay).
   async findAllForPost(viewerId: string, postId: string) {
     const rows = await this.prisma.postComment.findMany({
-      where: { postId },
+      where: { postId, parentId: null },
       orderBy: { createdAt: 'asc' },
-      include: { author: { select: commentAuthorSelect } },
+      include: {
+        author: { select: commentAuthorSelect },
+        _count: { select: { replies: true } },
+      },
     });
     const likedRows = await this.prisma.postCommentLike.findMany({
       where: { userId: viewerId, commentId: { in: rows.map((r) => r.id) } },
@@ -76,6 +87,33 @@ export class PostCommentService {
     });
     const likedCommentIds = new Set(likedRows.map((r) => r.commentId));
     return rows.map((r) => toApiComment(r, viewerId, likedCommentIds));
+  }
+
+  // Reply cua 1 comment goc - phan trang THAT (cursor, moi lan 3 - xem
+  // ArticleComments.tsx), KHAC findAllForPost (khong cursor, quy mo con nho).
+  // Sap createdAt ASC (cu truoc) giong tang goc, giu nhat quan thu tu doc.
+  async findReplies(
+    viewerId: string,
+    commentId: string,
+    cursor?: string,
+    limit = 3,
+  ) {
+    const rows = await this.prisma.postComment.findMany({
+      where: { parentId: commentId },
+      orderBy: { createdAt: 'asc' },
+      take: limit,
+      ...(cursor && { cursor: { id: cursor }, skip: 1 }),
+      include: { author: { select: commentAuthorSelect } },
+    });
+    const likedRows = await this.prisma.postCommentLike.findMany({
+      where: { userId: viewerId, commentId: { in: rows.map((r) => r.id) } },
+      select: { commentId: true },
+    });
+    const likedCommentIds = new Set(likedRows.map((r) => r.commentId));
+    return {
+      items: rows.map((r) => toApiComment(r, viewerId, likedCommentIds)),
+      nextCursor: rows.length === limit ? rows[rows.length - 1].id : null,
+    };
   }
 
   async create(userId: string, postId: string, dto: CreatePostCommentDto) {

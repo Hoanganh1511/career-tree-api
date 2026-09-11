@@ -28,7 +28,7 @@ type PostWithAuthor = Prisma.PostGetPayload<{
 // `timeAgo`: `following` khong con noi nao doc (bo tab Following tu lau),
 // `timeAgo` thay bang `createdAt` that - frontend tu tinh qua
 // formatRelativeTime() thay vi nhan chuoi "2h" dung san.
-export function toApiPost(post: PostWithAuthor) {
+export function toApiPost(post: PostWithAuthor, likedByMe = false) {
   return {
     id: post.id,
     kind: toApiKind(post.kind),
@@ -47,6 +47,10 @@ export function toApiPost(post: PostWithAuthor) {
       comments: post.commentsCount,
       reposts: post.repostsCount,
     },
+    // Tu 2026-09-12 - Like that (PostLike), tham so mac dinh false de
+    // ContestService (dung chung toApiPost, khong biet gi ve viewer) khong
+    // phai truyen gi ma van chay dung.
+    likedByMe,
     category: post.category,
     title: post.title,
     excerpt: post.excerpt,
@@ -115,7 +119,12 @@ export class PostService {
       ...(cursor && { cursor: { id: cursor }, skip: 1 }),
       include: { author: { select: authorSelect } },
     });
-    return posts.map(toApiPost);
+    const likedRows = await this.prisma.postLike.findMany({
+      where: { userId: viewerId, postId: { in: posts.map((p) => p.id) } },
+      select: { postId: true },
+    });
+    const likedPostIds = new Set(likedRows.map((r) => r.postId));
+    return posts.map((p) => toApiPost(p, likedPostIds.has(p.id)));
   }
 
   // Dung cho trang chi tiet 1 bai viet (enggo: /p/[id]) - tra ve null (khong
@@ -130,9 +139,51 @@ export class PostService {
     });
     if (!post) return null;
     if (post.visibility === 'DRAFT' && post.authorId !== viewerId) return null;
+    const liked = await this.prisma.postLike.findUnique({
+      where: { userId_postId: { userId: viewerId, postId: id } },
+    });
     // isOwner - dung de gate trang Sua bai (enggo: /compose/[id]), cung
     // convention voi Document (doc.isOwner, xem document.service.ts).
-    return { ...toApiPost(post), isOwner: post.authorId === viewerId };
+    return {
+      ...toApiPost(post, Boolean(liked)),
+      isOwner: post.authorId === viewerId,
+    };
+  }
+
+  // Like that (PostLike) - cung khuon voi PostCommentService.toggleLike
+  // (composite key userId+postId, transaction dong bo Post.likesCount).
+  async toggleLike(userId: string, postId: string) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { id: true },
+    });
+    if (!post) throw new NotFoundException(`Post ${postId} not found`);
+
+    const existing = await this.prisma.postLike.findUnique({
+      where: { userId_postId: { userId, postId } },
+    });
+    if (existing) {
+      const [, updated] = await this.prisma.$transaction([
+        this.prisma.postLike.delete({
+          where: { userId_postId: { userId, postId } },
+        }),
+        this.prisma.post.update({
+          where: { id: postId },
+          data: { likesCount: { decrement: 1 } },
+          select: { likesCount: true },
+        }),
+      ]);
+      return { liked: false, likesCount: updated.likesCount };
+    }
+    const [, updated] = await this.prisma.$transaction([
+      this.prisma.postLike.create({ data: { userId, postId } }),
+      this.prisma.post.update({
+        where: { id: postId },
+        data: { likesCount: { increment: 1 } },
+        select: { likesCount: true },
+      }),
+    ]);
+    return { liked: true, likesCount: updated.likesCount };
   }
 
   async create(userId: string, dto: CreatePostDto) {

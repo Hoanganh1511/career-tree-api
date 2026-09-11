@@ -59,9 +59,9 @@ export class ContestService {
         (a, b) =>
           b.likesCount + b.commentsCount - (a.likesCount + a.commentsCount),
       );
-      return posts.slice(0, limit).map(toApiPost);
+      return posts.slice(0, limit).map((p) => toApiPost(p));
     }
-    return posts.map(toApiPost);
+    return posts.map((p) => toApiPost(p));
   }
 
   // Cot "Bai viet lien quan" (25% ben phai trang chi tiet): lay bai CUNG
@@ -94,6 +94,6 @@ export class ContestService {
       take: limit,
       include: { author: { select: authorSelect } },
     });
-    return posts.map(toApiPost);
+    return posts.map((p) => toApiPost(p));
   }
 }

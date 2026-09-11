@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { PostCommentService } from './post-comment.service';
 import { CreatePostCommentDto } from './dto/create-post-comment.dto';
 import { CurrentUserId } from '../auth/current-user.decorator';
@@ -34,6 +44,23 @@ export class PostCommentController {
     @Param('commentId') commentId: string,
   ) {
     return this.commentService.remove(userId, commentId);
+  }
+
+  // Dat SAU :commentId (Delete) - khac method (GET) nen khong xung dot voi
+  // route khac du trung tien to ":commentId".
+  @Get(':commentId/replies')
+  findReplies(
+    @CurrentUserId() viewerId: string,
+    @Param('commentId') commentId: string,
+    @Query('cursor') cursor?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.commentService.findReplies(
+      viewerId,
+      commentId,
+      cursor,
+      limit ? Number(limit) : undefined,
+    );
   }
 
   @Post(':commentId/like')
