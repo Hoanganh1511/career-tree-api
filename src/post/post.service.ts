@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma, PostCategory } from '../../generated/prisma/client';
 import { CreatePostDto } from './dto/create-post.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 import { toApiKind, toDbKind } from './post-kind.util';
 import { toApiVisibility, toDbVisibility } from './post-visibility.util';
 import { UNCATEGORIZED_SLUG } from '../feed-category/feed-category.service';
@@ -47,6 +48,7 @@ export function toApiPost(post: PostWithAuthor) {
       reposts: post.repostsCount,
     },
     category: post.category,
+    title: post.title,
     excerpt: post.excerpt,
     // Compose Giai doan 2 - cot THAT (sibling voi cac field tren, KHONG nam
     // trong `data`) - xem CreatePostDto.
@@ -128,7 +130,9 @@ export class PostService {
     });
     if (!post) return null;
     if (post.visibility === 'DRAFT' && post.authorId !== viewerId) return null;
-    return toApiPost(post);
+    // isOwner - dung de gate trang Sua bai (enggo: /compose/[id]), cung
+    // convention voi Document (doc.isOwner, xem document.service.ts).
+    return { ...toApiPost(post), isOwner: post.authorId === viewerId };
   }
 
   async create(userId: string, dto: CreatePostDto) {
@@ -138,6 +142,41 @@ export class PostService {
         kind: toDbKind(dto.kind),
         category: dto.category,
         data: dto.data as Prisma.InputJsonValue,
+        title: dto.title,
+        excerpt: dto.excerpt,
+        visibility: dto.visibility ? toDbVisibility(dto.visibility) : undefined,
+        commentsEnabled: dto.commentsEnabled,
+        likesEnabled: dto.likesEnabled,
+        searchable: dto.searchable,
+      },
+      include: { author: { select: authorSelect } },
+    });
+    return toApiPost(post);
+  }
+
+  // 404 (khong phai 403) neu khong ton tai HOAC khong phai cua minh - tranh
+  // lo su ton tai cua bai viet draft/private cua nguoi khac, dung convention
+  // repo (xem document.service.ts).
+  private async assertAuthor(postId: string, userId: string) {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: { authorId: true },
+    });
+    if (!post || post.authorId !== userId) {
+      throw new NotFoundException(`Post ${postId} not found`);
+    }
+  }
+
+  // Sua bai - KHONG cho doi `kind` (xem UpdatePostDto), chi cap nhat field
+  // nao dto gui. `updatedAt` tu bump (schema co @updatedAt).
+  async update(userId: string, postId: string, dto: UpdatePostDto) {
+    await this.assertAuthor(postId, userId);
+    const post = await this.prisma.post.update({
+      where: { id: postId },
+      data: {
+        title: dto.title,
+        category: dto.category,
+        data: dto.data as Prisma.InputJsonValue | undefined,
         excerpt: dto.excerpt,
         visibility: dto.visibility ? toDbVisibility(dto.visibility) : undefined,
         commentsEnabled: dto.commentsEnabled,

@@ -8,6 +8,8 @@ import { AuthModule } from './auth/auth.module';
 import { CommonModule } from './common/common.module';
 import { UserModule } from './user/user.module';
 import { PostModule } from './post/post.module';
+import { PostCollectionModule } from './post-collection/post-collection.module';
+import { PostCommentModule } from './post-comment/post-comment.module';
 import { FollowModule } from './follow/follow.module';
 import { FeedCategoryModule } from './feed-category/feed-category.module';
 import { ContestModule } from './contest/contest.module';
@@ -46,6 +48,8 @@ import { TrackingModule } from './tracking/tracking.module';
     CommonModule,
     UserModule,
     PostModule,
+    PostCollectionModule,
+    PostCommentModule,
     FollowModule,
     FeedCategoryModule,
     ContestModule,

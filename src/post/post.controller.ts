@@ -4,11 +4,13 @@ import {
   Get,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
 import { PostService } from './post.service';
 import { CreatePostDto } from './dto/create-post.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 import { CurrentUserId } from '../auth/current-user.decorator';
 
 @Controller('posts')
@@ -63,5 +65,14 @@ export class PostController {
   @Post()
   create(@CurrentUserId() userId: string, @Body() dto: CreatePostDto) {
     return this.postService.create(userId, dto);
+  }
+
+  @Patch(':id')
+  update(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdatePostDto,
+  ) {
+    return this.postService.update(userId, id, dto);
   }
 }

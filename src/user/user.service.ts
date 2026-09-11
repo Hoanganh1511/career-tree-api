@@ -9,6 +9,7 @@ import { SyncUserDto } from './dto/sync-user.dto';
 import { CompleteOnboardingDto } from './dto/complete-onboarding.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { FollowService } from 'src/follow/follow.service';
+import { NotificationGateway } from 'src/notification/notification.gateway';
 
 @Injectable()
 export class UserService {
@@ -54,6 +55,7 @@ export class UserService {
   constructor(
     private prisma: PrismaService,
     private followService: FollowService,
+    private notificationGateway: NotificationGateway,
   ) {}
 
   async syncUser(dto: SyncUserDto): Promise<{ id: string; username: string }> {
@@ -367,5 +369,25 @@ export class UserService {
       });
       return { workspaceId, groupId };
     });
+  }
+
+  // "Ai dang online" (widget /home) - tai dung NGUYEN presence da co san cho
+  // chat (NotificationGateway.isOnline, xem ghi chu trong file do), khong
+  // Redis/heartbeat rieng. Chi nhan usernames (khong phai id) vi frontend
+  // chi co username tren tay (Author type khong co id) - resolve sang id
+  // roi tra ve theo dung key la username cho FE de doi chieu lai.
+  async getOnlineStatusByUsernames(
+    usernames: string[],
+  ): Promise<Record<string, boolean>> {
+    if (usernames.length === 0) return {};
+    const users = await this.prisma.user.findMany({
+      where: { username: { in: usernames } },
+      select: { id: true, username: true },
+    });
+    const result: Record<string, boolean> = {};
+    for (const u of users) {
+      if (u.username) result[u.username] = this.notificationGateway.isOnline(u.id);
+    }
+    return result;
   }
 }

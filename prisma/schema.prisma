@@ -74,6 +74,9 @@ model User {
   pollVotes                    PollVote[]
   messageReactions             MessageReaction[]
   diaryTopics                  DiaryTopic[]
+  postCollections              PostCollection[]
+  postComments                 PostComment[]
+  postCommentLikes             PostCommentLike[]
 }
 
 // Feed Trang chu - truoc day 100% mock o frontend (enggo/src/content/
@@ -295,9 +298,9 @@ enum PostVisibility {
 }
 
 model Post {
-  id               String          @id @default(uuid())
+  id               String               @id @default(uuid())
   authorId         String
-  author           User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author           User                 @relation(fields: [authorId], references: [id], onDelete: Cascade)
   kind             PostKind
   // Linh vuc bai dang thuoc ve (Frontend/Backend/...) - optional vi khong
   // phai kind nao cung can gan (vd poll/idea co the khong chon). Day la cot
@@ -309,13 +312,18 @@ model Post {
   // DOC LAP voi `category` o tren: `category` la topic Knowledge World, cot
   // nay la nganh nghe. Null = bai "Chia se chung" (khong gan nganh cu the).
   careerCategoryId String?
-  careerCategory   CareerCategory? @relation(fields: [careerCategoryId], references: [id], onDelete: SetNull)
+  careerCategory   CareerCategory?      @relation(fields: [careerCategoryId], references: [id], onDelete: SetNull)
   // Field rieng tung kind (content/title/image/poll options/...) - shape khop
   // voi tung nhanh cua Post union o frontend, TRU cac field icon/accent rieng
   // le (achievement/project-update/knowledge-block/tutorial/link/resource) -
   // nhung field do gio lay theo KIND tu POST_KIND_META o frontend thay vi luu
   // rieng tung post, tranh phai serialize component icon (khong the luu DB).
   data             Json
+  // Tieu de that - TRUOC DAY chi la state cuc bo tren Composer.tsx, tu ghep
+  // vao dong dau `content` (mat han neu excerpt duoc dien, vi content luc do
+  // = excerpt, khong con cho tieu de). Promote thanh cot that (giong excerpt
+  // duoi day) de khong mat du lieu + de tinh nang Sua bai hydrate lai dung.
+  title            String?
   // Compose "redesign mobile" - nguoi dung tu viet tom tat (truoc day
   // PostService tu cat 600 ky tu dau content). Optional: neu client khong
   // gui, PostService van fallback tu cat nhu cu (xem post.service.ts).
@@ -324,24 +332,122 @@ model Post {
   // xem post.service.ts), 3 co cho phep/tim kiem CHI la du lieu THAT duoc luu
   // lai, CHUA co he thong Comment/Reaction/tim kiem Post nao tieu thu chung -
   // giong dung tinh than da chot o Giai doan 1 (luu that, chua co gi dung toi).
-  visibility       PostVisibility  @default(PUBLIC)
-  commentsEnabled  Boolean         @default(true)
-  likesEnabled     Boolean         @default(true)
-  searchable       Boolean         @default(true)
+  visibility       PostVisibility       @default(PUBLIC)
+  commentsEnabled  Boolean              @default(true)
+  likesEnabled     Boolean              @default(true)
+  searchable       Boolean              @default(true)
   // So tinh, seed san - CHUA co bang Like/Comment that, bam Like/Comment o UI
   // hien la tuong tac cuc bo (xem ActionButton.tsx), chua ghi lai DB.
-  likesCount       Int             @default(0)
-  commentsCount    Int             @default(0)
-  repostsCount     Int             @default(0)
+  likesCount       Int                  @default(0)
+  commentsCount    Int                  @default(0)
+  repostsCount     Int                  @default(0)
   contests         PostContest[]
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
+  collectionItems  PostCollectionItem[]
+  comments         PostComment[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
   @@index([authorId])
   @@index([createdAt])
   @@index([category, createdAt])
   @@index([careerCategoryId, createdAt])
   @@index([visibility, createdAt])
+}
+
+enum PostCollectionVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+// Chu de rong (khac han PostCategory - enum do toan nhanh cong nghe/ky
+// thuat chi tiet, dung cho Post.category, KHONG hop voi bo suu tap vi bo
+// suu tap co the ve bat ky de tai nao - vd "Lich su Viet Nam"/"Training
+// Gym" trong mockup nguoi dung gui). Nullable tren model = coi nhu "Khac"
+// khi loc/dem, khong bat buoc chon luc tao.
+enum PostCollectionTopic {
+  TECH
+  LIFE
+  LEARNING
+  CREATIVITY
+  BUSINESS
+  SPORTS
+  CULTURE
+  HISTORY
+  OTHER
+}
+
+// "Bo suu tap" nguoi dung tu tao de gom Post lai theo chu de rieng (khac
+// han model Collection ben duoi, thuoc 1 nhanh noi dung khoa hoc/tai lieu
+// da chet - khong dung nham). userId KHONG @@unique voi title - 1 nguoi co
+// the tao nhieu bo suu tap trung ten, khong can rang buoc.
+model PostCollection {
+  id            String                   @id @default(uuid())
+  userId        String
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  coverImageUrl String?
+  visibility    PostCollectionVisibility @default(PUBLIC)
+  topic         PostCollectionTopic?
+  // Denormalized - tang/giam trong transaction luc them/xoa item (cung tinh
+  // than followerCount/followingCount cua UserFollow), tranh COUNT() moi lan
+  // liet ke danh sach bo suu tap.
+  postCount     Int                      @default(0)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  items         PostCollectionItem[]
+
+  @@index([userId, createdAt])
+}
+
+model PostCollectionItem {
+  collectionId String
+  collection   PostCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  postId       String
+  post         Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  addedAt      DateTime       @default(now())
+
+  @@id([collectionId, postId])
+  @@index([postId])
+}
+
+// Binh luan THAT cho Post thuong - KHONG dung chung voi model `Comment`
+// (gan cung vao CommunityPost, kiem tra quyen qua CommunityAccessService -
+// thuoc mien cong dong, khong ap dung duoc cho Post) - xay song song, dung
+// tinh than PostCollection da lam voi Collection cu khong lien quan. Reply
+// tu tham chieu (parentId) nhung UI CHI cho sau 1 cap (goc -> reply, khong
+// reply-cua-reply) - schema van cho phep sau hon ve mat ky thuat, KHONG bat
+// buoc rang buoc o DB, chi UI tu gioi han.
+model PostComment {
+  id         String            @id @default(uuid())
+  postId     String
+  post       Post              @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId   String?
+  parent     PostComment?      @relation("PostCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies    PostComment[]     @relation("PostCommentReplies")
+  content    String
+  // Denormalized - tang/giam trong transaction luc thich/bo thich (cung
+  // tinh than postCount cua PostCollection), tranh COUNT() moi lan liet ke.
+  likesCount Int               @default(0)
+  likes      PostCommentLike[]
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  @@index([postId, createdAt])
+  @@index([parentId])
+}
+
+model PostCommentLike {
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commentId String
+  comment   PostComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@id([userId, commentId])
+  @@index([commentId])
 }
 
 model UserProfile {

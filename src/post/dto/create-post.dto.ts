@@ -56,4 +56,12 @@ export class CreatePostDto {
   @IsString()
   @MaxLength(300)
   excerpt?: string;
+
+  // Cot THAT (khac `data.content` la excerpt phang) - TRUOC DAY chi ghep vao
+  // dong dau content, mat han neu co excerpt. Optional: bai khong dien tieu
+  // de van dang duoc (getPostTitle() tu fallback ve dong dau content).
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  title?: string;
 }

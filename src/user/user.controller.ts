@@ -76,6 +76,17 @@ export class UserController {
     );
   }
 
+  // Widget "Đang hoạt động" (/home) - PHAI khai bao TRUOC @Get(':username')
+  // ben duoi, cung ly do voi 'search'/'me' o tren.
+  @Get('online-status')
+  getOnlineStatus(@Query('usernames') usernames: string) {
+    const list = (usernames ?? '')
+      .split(',')
+      .map((u) => u.trim())
+      .filter(Boolean);
+    return this.userService.getOnlineStatusByUsernames(list);
+  }
+
   @Get(':username')
   getProfile(
     @CurrentUserId() viewerId: string,
