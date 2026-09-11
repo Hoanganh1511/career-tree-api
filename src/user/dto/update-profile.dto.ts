@@ -55,6 +55,45 @@ export class UpdateProfileDto {
   @MaxLength(100)
   role?: string;
 
+  // Mang xa hoi cong khai (sidebar trang chi tiet bai viet, enggo) - cung
+  // quy uoc voi websiteUrl: FE gui kem san tien to "https://", rong thi bo
+  // qua @IsUrl (cho phep xoa het de bo trong lien ket).
+  @IsOptional()
+  @ValidateIf((o) => !!o.twitterUrl)
+  @IsUrl()
+  @MaxLength(200)
+  twitterUrl?: string;
+
+  @IsOptional()
+  @ValidateIf((o) => !!o.facebookUrl)
+  @IsUrl()
+  @MaxLength(200)
+  facebookUrl?: string;
+
+  @IsOptional()
+  @ValidateIf((o) => !!o.instagramUrl)
+  @IsUrl()
+  @MaxLength(200)
+  instagramUrl?: string;
+
+  @IsOptional()
+  @ValidateIf((o) => !!o.youtubeUrl)
+  @IsUrl()
+  @MaxLength(200)
+  youtubeUrl?: string;
+
+  @IsOptional()
+  @ValidateIf((o) => !!o.linkedinUrl)
+  @IsUrl()
+  @MaxLength(200)
+  linkedinUrl?: string;
+
+  @IsOptional()
+  @ValidateIf((o) => !!o.rssUrl)
+  @IsUrl()
+  @MaxLength(200)
+  rssUrl?: string;
+
   // "Đổi ảnh" that (Settings + ProfileSidebar) - URL tra ve tu POST /uploads
   // (kind=image, S3 that, xem UploadService) da upload SAN o client, DTO nay
   // chi luu lai URL, khong nhan file truc tiep. `null` = XOA anh (khac voi

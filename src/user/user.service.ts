@@ -29,6 +29,12 @@ export class UserService {
         websiteUrl: true,
         pronouns: true,
         role: true,
+        twitterUrl: true,
+        facebookUrl: true,
+        instagramUrl: true,
+        youtubeUrl: true,
+        linkedinUrl: true,
+        rssUrl: true,
         postCount: true,
       },
     },
@@ -162,6 +168,12 @@ export class UserService {
       websiteUrl: target.profile?.websiteUrl ?? null,
       pronouns: target.profile?.pronouns ?? null,
       role: target.profile?.role ?? null,
+      twitterUrl: target.profile?.twitterUrl ?? null,
+      facebookUrl: target.profile?.facebookUrl ?? null,
+      instagramUrl: target.profile?.instagramUrl ?? null,
+      youtubeUrl: target.profile?.youtubeUrl ?? null,
+      linkedinUrl: target.profile?.linkedinUrl ?? null,
+      rssUrl: target.profile?.rssUrl ?? null,
       postCount: target.profile?.postCount ?? 0,
       isSelf: viewerId === target.id,
       isFollowing: isFollowing !== null,
@@ -197,7 +209,13 @@ export class UserService {
           dto.websiteUrl !== undefined ||
           dto.pronouns !== undefined ||
           dto.role !== undefined ||
-          dto.coverImageUrl !== undefined;
+          dto.coverImageUrl !== undefined ||
+          dto.twitterUrl !== undefined ||
+          dto.facebookUrl !== undefined ||
+          dto.instagramUrl !== undefined ||
+          dto.youtubeUrl !== undefined ||
+          dto.linkedinUrl !== undefined ||
+          dto.rssUrl !== undefined;
         if (hasProfileFields) {
           await tx.userProfile.upsert({
             where: { userId },
@@ -209,6 +227,12 @@ export class UserService {
               pronouns: dto.pronouns,
               role: dto.role,
               coverImageUrl: dto.coverImageUrl,
+              twitterUrl: dto.twitterUrl,
+              facebookUrl: dto.facebookUrl,
+              instagramUrl: dto.instagramUrl,
+              youtubeUrl: dto.youtubeUrl,
+              linkedinUrl: dto.linkedinUrl,
+              rssUrl: dto.rssUrl,
             },
             update: {
               bio: dto.bio,
@@ -217,6 +241,12 @@ export class UserService {
               pronouns: dto.pronouns,
               role: dto.role,
               coverImageUrl: dto.coverImageUrl,
+              twitterUrl: dto.twitterUrl,
+              facebookUrl: dto.facebookUrl,
+              instagramUrl: dto.instagramUrl,
+              youtubeUrl: dto.youtubeUrl,
+              linkedinUrl: dto.linkedinUrl,
+              rssUrl: dto.rssUrl,
             },
           });
         }

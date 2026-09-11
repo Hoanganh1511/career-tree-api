@@ -356,6 +356,17 @@ model UserProfile {
   // cong khai, KHONG lien quan yearsOfExperience (Dashboard Skill Tree) tren
   // User.
   role          String?
+  // Mang xa hoi cong khai (sidebar trang chi tiet bai viet, enggo) - moi
+  // field 1 URL day du (co san "https://", khop cach luu websiteUrl o tren).
+  // Tach rieng tung cot (khong gop 1 field JSON) de dung chung duoc pattern
+  // validate @IsUrl() tung field don gian nhu websiteUrl, khong can parse
+  // JSON o backend.
+  twitterUrl    String?
+  facebookUrl   String?
+  instagramUrl  String?
+  youtubeUrl    String?
+  linkedinUrl   String?
+  rssUrl        String?
   postCount     Int      @default(0)
   updatedAt     DateTime @updatedAt
 }
