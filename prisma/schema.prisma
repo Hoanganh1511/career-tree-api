@@ -1734,3 +1734,95 @@ model TrackingGroupSession {
 
   @@index([groupId, startedAt])
 }
+
+// "Series" dang chuoi bai/khoa hoc nhieu phan (vd 1 bo skill, 1 tutorial
+// nhieu chuong) - hien o /series (enggo), sidebar rieng + trang tong quan +
+// trang tung Entry. Dat ten "ContentSeries*" (KHONG dung "Series" tran) vi
+// da co model DocumentSeries + SeriesModule (src/series/**) tu truoc, phuc
+// vu tinh nang gom Document CUNG CHU DE trong 1 KnowledgeGroup - hoan toan
+// khac chuc nang, tranh dam ten.
+//
+// stats/installTabs/externalLinks la Json (khong tach bang rieng) vi day la
+// du lieu hien thi TU DO, so luong nho, luon fetch cung luc voi Series, va
+// khong can loc/join theo tung phan tu - tach bang se chi them JOIN vo ich.
+// Category/Entry la bang that vi can @@unique de dam bao slug/orderIndex
+// duy nhat (rang buoc #6 trong dac ta) va can query rieng (vd liet ke entry
+// theo category cho sidebar nav).
+model ContentSeries {
+  id                     String                  @id @default(uuid())
+  slug                   String                  @unique
+  title                  String
+  description            String
+  authorName             String
+  authorAvatarUrl        String?
+  emailCourseEnabled     Boolean                 @default(false)
+  emailCourseTitle       String?
+  emailCourseDescription String?
+  // [{label, value, icon?, link?}]
+  stats                  Json                    @default("[]")
+  // [{label, command, note?, link?}] - dung chung cho Install Widget o
+  // Overview; tung Entry co the ghi de qua ContentSeriesEntry.installTabs.
+  installTabs            Json                    @default("[]")
+  // [{label, url, icon?}]
+  externalLinks          Json                    @default("[]")
+  // Danh sach kenh chia se bat, vd ["x","bluesky","linkedin","copy"].
+  shareChannels          String[]                @default(["x", "bluesky", "linkedin", "copy"])
+  categories             ContentSeriesCategory[]
+  entries                ContentSeriesEntry[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+}
+
+// Nhom chu de trong 1 Series (vd "Getting Started") - ho tro nested qua
+// parentId (rang buoc #3 trong dac ta: "Hỗ trợ nested category").
+model ContentSeriesCategory {
+  id         String                  @id @default(uuid())
+  seriesId   String
+  series     ContentSeries           @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  parentId   String?
+  parent     ContentSeriesCategory?  @relation("ContentSeriesCategoryChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children   ContentSeriesCategory[] @relation("ContentSeriesCategoryChildren")
+  slug       String
+  title      String
+  orderIndex Int                     @default(0)
+  colorHex   String?
+  entries    ContentSeriesEntry[]
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
+
+  @@unique([seriesId, slug])
+  @@index([seriesId, orderIndex])
+  @@index([parentId])
+}
+
+// 1 bai/skill trong Series. `orderIndex` la thu tu HIEN THI + dung tinh
+// pagination Prev/Next (rang buoc #6: thu tu duy nhat trong 1 Series).
+// installTabs/faq de null = ke thua/khong co, KHAC mang rong (mang rong o
+// Series.installTabs nghia la series khong bat Install Widget).
+model ContentSeriesEntry {
+  id              String                @id @default(uuid())
+  seriesId        String
+  series          ContentSeries         @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  categoryId      String
+  category        ContentSeriesCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  slug            String
+  orderIndex      Int
+  title           String
+  subtitle        String?
+  icon            String?
+  source          String?
+  contentMarkdown String
+  // Ghi de Install Widget rieng cho Entry nay - null = dung
+  // ContentSeries.installTabs. Xem comment tren ContentSeries.installTabs.
+  installTabs     Json?
+  // [{question, answer}] - null/rong = khong hien FAQ section.
+  faq             Json?
+  readTimeMinutes Int                   @default(1)
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([seriesId, slug])
+  @@unique([seriesId, orderIndex])
+  @@index([seriesId, orderIndex])
+  @@index([categoryId])
+}

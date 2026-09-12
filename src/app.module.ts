@@ -24,6 +24,7 @@ import { WorkspaceModule } from './workspace/workspace.module';
 import { KnowledgeGroupModule } from './knowledge-group/knowledge-group.module';
 import { KnowledgeGroupCollaboratorModule } from './knowledge-group-collaborator/knowledge-group-collaborator.module';
 import { SeriesModule } from './series/series.module';
+import { ContentSeriesModule } from './content-series/content-series.module';
 import { ChecklistModule } from './checklist/checklist.module';
 import { ObjectiveModule } from './objective/objective.module';
 import { NotificationModule } from './notification/notification.module';
@@ -64,6 +65,7 @@ import { TrackingModule } from './tracking/tracking.module';
     KnowledgeGroupModule,
     KnowledgeGroupCollaboratorModule,
     SeriesModule,
+    ContentSeriesModule,
     ChecklistModule,
     ObjectiveModule,
     NotificationModule,
