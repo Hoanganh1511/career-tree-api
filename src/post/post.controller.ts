@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   NotFoundException,
   Param,
   Patch,
@@ -91,6 +94,12 @@ export class PostController {
     @Body() dto: UpdatePostDto,
   ) {
     return this.postService.update(userId, id, dto);
+  }
+
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete(':id')
+  remove(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.postService.remove(userId, id);
   }
 
   @Post(':id/like')

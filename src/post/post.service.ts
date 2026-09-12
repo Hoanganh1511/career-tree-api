@@ -306,4 +306,12 @@ export class PostService {
     });
     return toApiPost(post);
   }
+
+  // Xoa vinh vien - cascade xoa theo (like/comment/saved/collection item/
+  // contest link, xem onDelete: Cascade tren tung model lien quan trong
+  // schema.prisma), khong can don dep thu cong o day.
+  async remove(userId: string, postId: string) {
+    await this.assertAuthor(postId, userId);
+    await this.prisma.post.delete({ where: { id: postId } });
+  }
 }
