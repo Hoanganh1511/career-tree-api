@@ -20,6 +20,7 @@ import { UpdateContentSeriesCategoryDto } from './dto/update-content-series-cate
 import { CreateContentSeriesEntryDto } from './dto/create-content-series-entry.dto';
 import { UpdateContentSeriesEntryDto } from './dto/update-content-series-entry.dto';
 import { MoveItemDto } from './dto/move-item.dto';
+import { ReorderItemsDto } from './dto/reorder-items.dto';
 
 // Doc cong khai (@Public() tung route) - GHI (create/update/delete/move) chi
 // admin (AdminGuard, xem User.isAdmin) vi day la NOI DUNG CHINH THUC cua app
@@ -113,6 +114,26 @@ export class ContentSeriesController {
       slug,
       categoryId,
       dto.direction,
+    );
+  }
+
+  @UseGuards(AdminGuard)
+  @Post(':slug/categories/reorder')
+  reorderCategories(@Param('slug') slug: string, @Body() dto: ReorderItemsDto) {
+    return this.contentSeriesService.reorderCategories(slug, dto.orderedIds);
+  }
+
+  @UseGuards(AdminGuard)
+  @Post(':slug/categories/:categoryId/entries/reorder')
+  reorderEntriesInCategory(
+    @Param('slug') slug: string,
+    @Param('categoryId') categoryId: string,
+    @Body() dto: ReorderItemsDto,
+  ) {
+    return this.contentSeriesService.reorderEntriesInCategory(
+      slug,
+      categoryId,
+      dto.orderedIds,
     );
   }
 

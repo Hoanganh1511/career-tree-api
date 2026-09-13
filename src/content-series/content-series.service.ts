@@ -462,4 +462,90 @@ export class ContentSeriesService {
       where: { id: entryId },
     });
   }
+
+  // Keo tha (thay the goi move up/down nhieu lan) - FE tu tinh THU TU CUOI
+  // CUNG (vd bang arrayMove) roi gui nguyen 1 mang id. Category khong co
+  // @@unique tren orderIndex nen chi can 1 luot gan lai 0..n-1.
+  async reorderCategories(seriesSlug: string, orderedIds: string[]) {
+    const seriesId = await this.requireSeriesId(seriesSlug);
+    const categories = await this.prisma.contentSeriesCategory.findMany({
+      where: { seriesId, parentId: null },
+      select: { id: true },
+    });
+    const validIds = new Set(categories.map((c) => c.id));
+    if (
+      orderedIds.length !== categories.length ||
+      !orderedIds.every((id) => validIds.has(id))
+    ) {
+      throw new BadRequestException(
+        'Danh sách category không khớp với Series này',
+      );
+    }
+    await this.prisma.$transaction(
+      orderedIds.map((id, index) =>
+        this.prisma.contentSeriesCategory.update({
+          where: { id },
+          data: { orderIndex: index },
+        }),
+      ),
+    );
+    return this.prisma.contentSeriesCategory.findMany({
+      where: { seriesId },
+      orderBy: { orderIndex: 'asc' },
+    });
+  }
+
+  // Keo tha entry TRONG CUNG 1 category - CHI hoan doi orderIndex GIUA CHINH
+  // cac entry cua category nay (giu nguyen tap "cho" orderIndex ma category
+  // nay dang chiem trong thu tu toan cuc cua Series), KHONG dung lai toan bo
+  // day so 0..n-1 nhu category - vi orderIndex Entry la KHOA TOAN CUC ca
+  // Series (dung cho Prev/Next/counter "01/25" xuyen category, xem
+  // findEntry), doi het se lam xao tron thu tu cac category khac. 2 luot
+  // (gan am roi gan that) de tranh dam @@unique([seriesId, orderIndex]) khi
+  // hoan doi cheo nhieu entry cung luc trong 1 transaction.
+  async reorderEntriesInCategory(
+    seriesSlug: string,
+    categoryId: string,
+    orderedIds: string[],
+  ) {
+    const seriesId = await this.requireSeriesId(seriesSlug);
+    const categoryEntries = await this.prisma.contentSeriesEntry.findMany({
+      where: { seriesId, categoryId },
+      select: { id: true, orderIndex: true },
+      orderBy: { orderIndex: 'asc' },
+    });
+    const validIds = new Set(categoryEntries.map((e) => e.id));
+    if (
+      orderedIds.length !== categoryEntries.length ||
+      !orderedIds.every((id) => validIds.has(id))
+    ) {
+      throw new BadRequestException(
+        'Danh sách entry không khớp với category này',
+      );
+    }
+    const slots = categoryEntries
+      .map((e) => e.orderIndex)
+      .sort((a, b) => a - b);
+
+    await this.prisma.$transaction(
+      orderedIds.map((id, index) =>
+        this.prisma.contentSeriesEntry.update({
+          where: { id },
+          data: { orderIndex: -(index + 1) },
+        }),
+      ),
+    );
+    await this.prisma.$transaction(
+      orderedIds.map((id, index) =>
+        this.prisma.contentSeriesEntry.update({
+          where: { id },
+          data: { orderIndex: slots[index] },
+        }),
+      ),
+    );
+    return this.prisma.contentSeriesEntry.findMany({
+      where: { seriesId, categoryId },
+      orderBy: { orderIndex: 'asc' },
+    });
+  }
 }
