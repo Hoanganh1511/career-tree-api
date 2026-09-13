@@ -2,13 +2,23 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsIn,
   IsNotEmpty,
   IsString,
   ValidateNested,
 } from 'class-validator';
-import { ChatMessageDto } from '../../ai-assistant/dto/ask-ai-assistant.dto';
 
-export { ChatMessageDto };
+// Truoc day import tu ai-assistant/dto/ask-ai-assistant.dto.ts (module do
+// da bi xoa cung tinh nang Workspace, 2026-09-14) - chuyen dinh nghia ve day
+// vi post-assistant la noi tieu thu DUY NHAT con lai.
+export class ChatMessageDto {
+  @IsIn(['user', 'assistant'])
+  role!: 'user' | 'assistant';
+
+  @IsString()
+  @IsNotEmpty()
+  content!: string;
+}
 
 // Composer.tsx "AI hỗ trợ" - doan dang viet (content) + 1 yeu cau tu do
 // (instruction, vd "Viết tiếp"/"Rút gọn" hoặc nguoi dung tu go) -> tra ve 1

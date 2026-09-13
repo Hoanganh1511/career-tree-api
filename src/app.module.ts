@@ -19,16 +19,8 @@ import { CommunityMemberModule } from './community-member/community-member.modul
 import { CommunityPostModule } from './community-post/community-post.module';
 import { CommentModule } from './comment/comment.module';
 import { ReactionModule } from './reaction/reaction.module';
-import { DocumentModule } from './document/document.module';
-import { WorkspaceModule } from './workspace/workspace.module';
-import { KnowledgeGroupModule } from './knowledge-group/knowledge-group.module';
-import { KnowledgeGroupCollaboratorModule } from './knowledge-group-collaborator/knowledge-group-collaborator.module';
-import { SeriesModule } from './series/series.module';
 import { ContentSeriesModule } from './content-series/content-series.module';
-import { ChecklistModule } from './checklist/checklist.module';
-import { ObjectiveModule } from './objective/objective.module';
 import { NotificationModule } from './notification/notification.module';
-import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 import { PostAssistantModule } from './post-assistant/post-assistant.module';
 import { ChatModule } from './chat/chat.module';
 import { UploadModule } from './upload/upload.module';
@@ -60,16 +52,8 @@ import { TrackingModule } from './tracking/tracking.module';
     CommunityPostModule,
     CommentModule,
     ReactionModule,
-    DocumentModule,
-    WorkspaceModule,
-    KnowledgeGroupModule,
-    KnowledgeGroupCollaboratorModule,
-    SeriesModule,
     ContentSeriesModule,
-    ChecklistModule,
-    ObjectiveModule,
     NotificationModule,
-    AiAssistantModule,
     PostAssistantModule,
     ChatModule,
     UploadModule,

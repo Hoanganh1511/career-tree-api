@@ -1,20 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { NotificationType, Prisma } from '../../generated/prisma/client';
+import { Prisma } from '../../generated/prisma/client';
 import { NotificationGateway } from './notification.gateway';
 
 const notificationInclude = {
   actor: {
     select: { id: true, username: true, name: true, avatarUrl: true },
-  },
-  group: {
-    select: {
-      id: true,
-      name: true,
-      workspace: {
-        select: { id: true, owner: { select: { username: true } } },
-      },
-    },
   },
 } satisfies Prisma.NotificationInclude;
 
@@ -22,6 +13,9 @@ type NotificationWithRelations = Prisma.NotificationGetPayload<{
   include: typeof notificationInclude;
 }>;
 
+// Truoc day con phuc vu luong "yeu cau cong tac nhom kien thuc" (3 loai
+// GROUP_COLLAB_*, kem group/collabId) - da bo cung tinh nang Workspace/
+// KnowledgeGroup (2026-09-14). Gio chi con FOLLOW.
 @Injectable()
 export class NotificationService {
   constructor(
@@ -29,17 +23,12 @@ export class NotificationService {
     private gateway: NotificationGateway,
   ) {}
 
-  // Goi tu CAC SERVICE KHAC (vd KnowledgeGroupCollaboratorService) khi co
-  // hanh dong can bao cho 1 user - KHONG expose qua controller rieng, chi la
-  // helper noi bo. Tu bo qua (khong tao gi) neu actor trung recipient - vd
-  // truong hop hiem chu nhom tu request/tu duyet yeu cau cua chinh minh,
-  // khong ai can "tu bao" ban than.
+  // Tu bo qua (khong tao gi) neu actor trung recipient - vd truong hop hiem
+  // tu follow chinh minh, khong ai can "tu bao" ban than.
   async create(params: {
     recipientId: string;
     actorId?: string | null;
-    type: NotificationType;
-    groupId?: string | null;
-    collabId?: string | null;
+    type: 'FOLLOW';
   }) {
     if (params.actorId && params.actorId === params.recipientId) return null;
     const created = await this.prisma.notification.create({
@@ -47,8 +36,6 @@ export class NotificationService {
         recipientId: params.recipientId,
         actorId: params.actorId ?? null,
         type: params.type,
-        groupId: params.groupId ?? null,
-        collabId: params.collabId ?? null,
       },
       include: notificationInclude,
     });
@@ -68,24 +55,9 @@ export class NotificationService {
     return created;
   }
 
-  // filter 'requests' = CHI yeu cau cong tac dang cho DUYET (tab "Yêu cầu"
-  // o FE) - GROUP_COLLAB_APPROVED/REJECTED KHONG thuoc tab nay (do la ket
-  // qua đa xu ly, khong con hanh dong nao can lam nua).
-  async list(
-    userId: string,
-    filter: 'all' | 'requests' = 'all',
-    cursor?: string,
-    limit = 20,
-  ) {
-    const where: Prisma.NotificationWhereInput = {
-      recipientId: userId,
-      ...(filter === 'requests'
-        ? { type: NotificationType.GROUP_COLLAB_REQUESTED }
-        : {}),
-    };
-
+  async list(userId: string, cursor?: string, limit = 20) {
     const rows = await this.prisma.notification.findMany({
-      where,
+      where: { recipientId: userId },
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       orderBy: { createdAt: 'desc' },
@@ -133,23 +105,6 @@ export class NotificationService {
     return { markedAt: new Date().toISOString() };
   }
 
-  // Goi tu approve()/reject() (KnowledgeGroupCollaboratorService) SAU khi da
-  // xu ly xong 1 yeu cau cong tac - xoa han thong bao GROUP_COLLAB_REQUESTED
-  // goc thay vi chi markRead, vi FE quyet dinh co hien nut Duyet/Tu choi hay
-  // khong dua vao `type` (list() filter='requests' cung loc theo type), KHONG
-  // dua vao readAt - markRead thoi se khong an duoc nut, thong bao "con treo"
-  // mai voi nut bam du da xu ly roi. Best-effort (khong throw) - goi tu noi
-  // da boc try/catch rieng.
-  async deleteRequestNotification(recipientId: string, collabId: string) {
-    await this.prisma.notification.deleteMany({
-      where: {
-        recipientId,
-        collabId,
-        type: NotificationType.GROUP_COLLAB_REQUESTED,
-      },
-    });
-  }
-
   private toApi(n: NotificationWithRelations) {
     return {
       id: n.id,
@@ -162,15 +117,6 @@ export class NotificationService {
             avatarUrl: n.actor.avatarUrl,
           }
         : null,
-      group: n.group
-        ? {
-            id: n.group.id,
-            name: n.group.name,
-            workspaceId: n.group.workspace.id,
-            ownerUsername: n.group.workspace.owner.username,
-          }
-        : null,
-      collabId: n.collabId,
       read: n.readAt !== null,
       createdAt: n.createdAt.toISOString(),
     };

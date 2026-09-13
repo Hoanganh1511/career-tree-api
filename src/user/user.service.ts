@@ -335,39 +335,14 @@ export class UserService {
     };
   }
 
-  // Hoan tat/bo qua modal chao mung. CO firstChapterTitle -> tao THAT 1
-  // Workspace + 1 KnowledgeGroup dau tien (user moi toanh luon co 0
-  // Workspace - xem syncUser(), khong tu tao) - viet thang qua tx thay vi
-  // goi lai WorkspaceService/KnowledgeGroupService (chung khong nhan
-  // Prisma.TransactionClient tu ngoai truyen vao), cung 1 tien le voi
-  // ChatService.addGroupMembers. KHONG firstChapterTitle (dong modal som o
-  // buoc 1/2) -> chi danh dau onboardedAt, khong tao gi ca.
+  // Hoan tat/bo qua modal chao mung - chi danh dau onboardedAt + luu
+  // onboardingGoal. Truoc day (co dto.firstChapterTitle) con tao that 1
+  // Workspace + 1 KnowledgeGroup dau tien, da bo cung luc xoa tinh nang
+  // Workspace (2026-09-14).
   async completeOnboarding(userId: string, dto: CompleteOnboardingDto) {
-    return this.prisma.$transaction(async (tx) => {
-      let workspaceId: string | null = null;
-      let groupId: string | null = null;
-      if (dto.firstChapterTitle) {
-        const user = await tx.user.findUniqueOrThrow({
-          where: { id: userId },
-          select: { name: true },
-        });
-        const workspace = await tx.workspace.create({
-          data: { ownerId: userId, name: `Không gian của ${user.name}` },
-        });
-        const group = await tx.knowledgeGroup.create({
-          data: {
-            workspaceId: workspace.id,
-            name: dto.firstChapterTitle,
-          },
-        });
-        workspaceId = workspace.id;
-        groupId = group.id;
-      }
-      await tx.user.update({
-        where: { id: userId },
-        data: { onboardedAt: new Date(), onboardingGoal: dto.goal },
-      });
-      return { workspaceId, groupId };
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { onboardedAt: new Date(), onboardingGoal: dto.goal },
     });
   }
 
@@ -386,7 +361,8 @@ export class UserService {
     });
     const result: Record<string, boolean> = {};
     for (const u of users) {
-      if (u.username) result[u.username] = this.notificationGateway.isOnline(u.id);
+      if (u.username)
+        result[u.username] = this.notificationGateway.isOnline(u.id);
     }
     return result;
   }

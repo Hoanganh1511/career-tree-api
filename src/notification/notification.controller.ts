@@ -9,13 +9,11 @@ export class NotificationController {
   @Get()
   list(
     @CurrentUserId() userId: string,
-    @Query('filter') filter?: string,
     @Query('cursor') cursor?: string,
     @Query('limit') limit?: string,
   ) {
     return this.notificationService.list(
       userId,
-      filter === 'requests' ? 'requests' : 'all',
       cursor,
       limit ? Number(limit) : undefined,
     );
