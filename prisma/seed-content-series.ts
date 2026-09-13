@@ -46,7 +46,7 @@ async function main() {
         },
       ],
       externalLinks: [
-        { label: 'GitHub repo', url: 'https://github.com/career-tree/ai-agent-skills', icon: 'Github' },
+        { label: 'GitHub repo', url: 'https://github.com/career-tree/ai-agent-skills', icon: 'GitFork' },
         { label: 'Docs', url: 'https://career-tree.dev/docs/ai-agent-skills', icon: 'BookOpen' },
       ],
       shareChannels: ['x', 'bluesky', 'linkedin', 'copy'],
