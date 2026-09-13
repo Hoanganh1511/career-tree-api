@@ -66,10 +66,18 @@ function findMoveNeighbor<T extends { id: string; orderIndex: number }>(
 export class ContentSeriesService {
   constructor(private prisma: PrismaService) {}
 
+  // Kem categories/entries (summary) - trang danh sach FE hien preview vai
+  // entry dau tien cua moi Series (dac ta the Series kieu "matt pocock
+  // skills": 1 category + vai bai lien quan ben canh), khong chi ten/mo ta
+  // suong nhu truoc.
   findAll() {
     return this.prisma.contentSeries.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { _count: { select: { entries: true } } },
+      include: {
+        _count: { select: { entries: true } },
+        categories: { orderBy: { orderIndex: 'asc' } },
+        entries: { select: entrySummarySelect, orderBy: { orderIndex: 'asc' } },
+      },
     });
   }
 
