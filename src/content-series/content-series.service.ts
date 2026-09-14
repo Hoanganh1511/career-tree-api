@@ -158,7 +158,7 @@ export class ContentSeriesService {
     const slug = dto.slug
       ? slugify(dto.slug)
       : await this.uniqueSeriesSlug(dto.title);
-    return this.prisma.contentSeries.create({
+    const series = await this.prisma.contentSeries.create({
       data: {
         slug,
         title: dto.title,
@@ -180,6 +180,35 @@ export class ContentSeriesService {
         ],
       },
     });
+    // Nguyen tac MOI (yeu cau nguoi dung: "khi mà tạo 1 series ấy, thì luôn
+    // có phần explore, tối thiểu là có phần Map") - moi Series MOI tao luon
+    // co san 1 category goc "Explore" + 1 entry "Map" ben trong, de FE co
+    // noi de REDIRECT toi (xem SeriesOverviewPage - dan thang vao Map thay
+    // vi trang tong quan theo tieu de Series). Dung truc tiep prisma (khong
+    // goi lai createCategory/createEntry) vi seriesId da co san o day, khong
+    // can requireSeriesId() tra cuu lai lan nua.
+    const exploreCategory = await this.prisma.contentSeriesCategory.create({
+      data: {
+        seriesId: series.id,
+        parentId: null,
+        slug: 'explore',
+        title: 'Explore',
+        orderIndex: 0,
+      },
+    });
+    await this.prisma.contentSeriesEntry.create({
+      data: {
+        seriesId: series.id,
+        categoryId: exploreCategory.id,
+        slug: 'map',
+        orderIndex: 0,
+        title: 'Map',
+        contentMarkdown:
+          '# Map\n\nLộ trình của series này sẽ được trình bày ở đây.',
+        readTimeMinutes: 1,
+      },
+    });
+    return series;
   }
 
   async updateSeries(slug: string, dto: UpdateContentSeriesDto) {
