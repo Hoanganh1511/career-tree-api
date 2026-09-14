@@ -22,6 +22,11 @@ export class UpdateContentSeriesEntryDto {
   @IsOptional()
   @IsString()
   @MaxLength(200)
+  navTitle?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
   slug?: string;
 
   @IsOptional()

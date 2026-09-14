@@ -1499,6 +1499,12 @@ model ContentSeriesEntry {
   slug            String
   orderIndex      Int
   title           String
+  // Ten hien thi RIENG trong sidebar (cay category/entry) - null = dung
+  // chung `title` (mac dinh, khong bat buoc dien them). Tach khoi `title`
+  // (H1 tren trang doc) vi 2 ngu canh do dai chu cho phep khac nhau: sidebar
+  // hep can 1 dong ngan gon, H1 co the dai/mo ta hon - yeu cau nguoi dung
+  // "tôi muốn có thể tùy chỉnh title ở 2 vị trí đó".
+  navTitle        String?
   subtitle        String?
   icon            String?
   source          String?

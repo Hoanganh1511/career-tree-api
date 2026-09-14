@@ -20,6 +20,7 @@ const entrySummarySelect = {
   slug: true,
   orderIndex: true,
   title: true,
+  navTitle: true,
   subtitle: true,
   icon: true,
   categoryId: true,
@@ -240,16 +241,29 @@ export class ContentSeriesService {
     dto: CreateContentSeriesCategoryDto,
   ) {
     const seriesId = await this.requireSeriesId(seriesSlug);
+    // parentId (neu co) phai la 1 category THUOC DUNG series nay - chan tao
+    // "accordion" long vao category cua series khac qua sua tay request.
+    if (dto.parentId) {
+      const parent = await this.prisma.contentSeriesCategory.findFirst({
+        where: { id: dto.parentId, seriesId },
+      });
+      if (!parent)
+        throw new NotFoundException(`Category ${dto.parentId} khong ton tai`);
+    }
     const slug = dto.slug
       ? slugify(dto.slug)
       : await this.uniqueCategorySlug(seriesId, dto.title);
+    // orderIndex tinh RIENG theo tung nhom parentId (giong tinh than
+    // uniqueEntrySlug/maxOrder o Entry) - "cho" so thu tu cua category con la
+    // doc lap voi category goc, khong dung chung 1 day so.
     const maxOrder = await this.prisma.contentSeriesCategory.aggregate({
-      where: { seriesId, parentId: null },
+      where: { seriesId, parentId: dto.parentId ?? null },
       _max: { orderIndex: true },
     });
     return this.prisma.contentSeriesCategory.create({
       data: {
         seriesId,
+        parentId: dto.parentId,
         slug,
         title: dto.title,
         colorHex: dto.colorHex,
@@ -369,6 +383,7 @@ export class ContentSeriesService {
         slug,
         orderIndex: (maxOrder._max.orderIndex ?? -1) + 1,
         title: dto.title,
+        navTitle: dto.navTitle,
         subtitle: dto.subtitle,
         icon: dto.icon,
         source: dto.source,
@@ -405,6 +420,7 @@ export class ContentSeriesService {
       data: {
         categoryId: dto.categoryId,
         title: dto.title,
+        navTitle: dto.navTitle,
         subtitle: dto.subtitle,
         icon: dto.icon,
         source: dto.source,
