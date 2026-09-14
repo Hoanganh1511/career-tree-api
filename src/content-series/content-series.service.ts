@@ -164,6 +164,7 @@ export class ContentSeriesService {
         description: dto.description,
         authorName: dto.authorName,
         authorAvatarUrl: dto.authorAvatarUrl,
+        coverImageUrl: dto.coverImageUrl,
         emailCourseEnabled: dto.emailCourseEnabled ?? false,
         emailCourseTitle: dto.emailCourseTitle,
         emailCourseDescription: dto.emailCourseDescription,

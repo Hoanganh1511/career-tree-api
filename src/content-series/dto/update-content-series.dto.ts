@@ -31,6 +31,10 @@ export class UpdateContentSeriesDto {
   authorAvatarUrl?: string;
 
   @IsOptional()
+  @IsString()
+  coverImageUrl?: string;
+
+  @IsOptional()
   @IsBoolean()
   emailCourseEnabled?: boolean;
 

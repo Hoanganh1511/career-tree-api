@@ -29,6 +29,10 @@ export class CreateContentSeriesDto {
   authorAvatarUrl?: string;
 
   @IsOptional()
+  @IsString()
+  coverImageUrl?: string;
+
+  @IsOptional()
   @IsBoolean()
   emailCourseEnabled?: boolean;
 

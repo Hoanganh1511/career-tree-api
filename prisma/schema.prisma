@@ -1442,6 +1442,10 @@ model ContentSeries {
   description            String
   authorName             String
   authorAvatarUrl        String?
+  // Anh nen hero cho trang tong quan 1 Series (/series/[slug]) - optional,
+  // CHUA ap dung cho the trong rail "Series mới nhất" o /home hay danh sach
+  // /series (2 noi do co chu dich giu phang/khong anh, xem NewestSeriesRail.tsx).
+  coverImageUrl          String?
   emailCourseEnabled     Boolean                 @default(false)
   emailCourseTitle       String?
   emailCourseDescription String?
