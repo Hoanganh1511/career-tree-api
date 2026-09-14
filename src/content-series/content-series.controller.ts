@@ -20,6 +20,7 @@ import { UpdateContentSeriesCategoryDto } from './dto/update-content-series-cate
 import { CreateContentSeriesEntryDto } from './dto/create-content-series-entry.dto';
 import { UpdateContentSeriesEntryDto } from './dto/update-content-series-entry.dto';
 import { MoveItemDto } from './dto/move-item.dto';
+import { MoveCategoryToParentDto } from './dto/move-category-to-parent.dto';
 import { ReorderItemsDto } from './dto/reorder-items.dto';
 
 // Doc cong khai (@Public() tung route) - GHI (create/update/delete/move) chi
@@ -114,6 +115,20 @@ export class ContentSeriesController {
       slug,
       categoryId,
       dto.direction,
+    );
+  }
+
+  @UseGuards(AdminGuard)
+  @Post(':slug/categories/:categoryId/move-to-parent')
+  moveCategoryToParent(
+    @Param('slug') slug: string,
+    @Param('categoryId') categoryId: string,
+    @Body() dto: MoveCategoryToParentDto,
+  ) {
+    return this.contentSeriesService.moveCategoryToParent(
+      slug,
+      categoryId,
+      dto.parentId,
     );
   }
 

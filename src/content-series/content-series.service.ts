@@ -343,6 +343,52 @@ export class ContentSeriesService {
     });
   }
 
+  // Chuyen 1 category CON sang lam con cua 1 category GOC KHAC (yeu cau
+  // nguoi dung: "dịch chuyển cả cục accordion ... từ Explore kéo xuống
+  // Security"). Khac moveCategory (chi hoan doi orderIndex trong CUNG cha) -
+  // o day doi HAN parentId, roi noi VAO CUOI danh sach nhom con cua cha moi
+  // (giong tinh than orderIndex khi createCategory) de khong dung do
+  // orderIndex voi nhom con da co san o do.
+  async moveCategoryToParent(
+    seriesSlug: string,
+    categoryId: string,
+    newParentId: string,
+  ) {
+    const seriesId = await this.requireSeriesId(seriesSlug);
+    const category = await this.prisma.contentSeriesCategory.findFirst({
+      where: { id: categoryId, seriesId },
+    });
+    if (!category)
+      throw new NotFoundException(`Category ${categoryId} khong ton tai`);
+    if (!category.parentId) {
+      throw new BadRequestException(
+        'Chỉ nhóm con (accordion) mới chuyển cha được - category gốc tự sắp xếp bằng kéo thả.',
+      );
+    }
+    // Cha moi PHAI la 1 category GOC (parentId null) THUOC DUNG series nay -
+    // chan chuyen sang category cua series khac, va chan long nhom con vao
+    // nhom con khac (gioi han toi da 1 cap, xem comment SeriesTreeManager.tsx).
+    const newParent = await this.prisma.contentSeriesCategory.findFirst({
+      where: { id: newParentId, seriesId, parentId: null },
+    });
+    if (!newParent)
+      throw new NotFoundException(
+        `Category gốc đích ${newParentId} khong ton tai`,
+      );
+    if (newParentId === category.parentId) return category;
+    const maxOrder = await this.prisma.contentSeriesCategory.aggregate({
+      where: { seriesId, parentId: newParentId },
+      _max: { orderIndex: true },
+    });
+    return this.prisma.contentSeriesCategory.update({
+      where: { id: categoryId },
+      data: {
+        parentId: newParentId,
+        orderIndex: (maxOrder._max.orderIndex ?? -1) + 1,
+      },
+    });
+  }
+
   // ------------------------- Cap 3: Entry -------------------------
 
   private async uniqueEntrySlug(
