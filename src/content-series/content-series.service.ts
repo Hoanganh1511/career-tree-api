@@ -446,8 +446,15 @@ export class ContentSeriesService {
       where: { id: entryId, seriesId },
     });
     if (!entry) throw new NotFoundException(`Entry ${entryId} khong ton tai`);
+    // CHI trong CUNG category (giong moveCategory scope theo parentId, va
+    // giong reorderEntriesInCategory ben duoi) - truoc day quet CA series
+    // (moi category tron lan), khien nut len/xuong co the hoan doi voi 1
+    // entry o CATEGORY KHAC dang dung ke ve orderIndex toan cuc, sai voi gioi
+    // han catIndex FE dat ra (chi disable o dau/cuoi TRONG category) va lam
+    // thu tu hien thi nhay sai vi tri sau khi doi (nguoi dung bao "di chuyen
+    // that bai").
     const all = await this.prisma.contentSeriesEntry.findMany({
-      where: { seriesId },
+      where: { seriesId, categoryId: entry.categoryId },
       select: { id: true, orderIndex: true },
     });
     const neighbor = findMoveNeighbor(all, entryId, direction);
