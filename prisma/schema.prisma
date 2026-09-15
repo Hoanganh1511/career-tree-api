@@ -1550,6 +1550,15 @@ model ContentSeriesEntry {
   installTabs     Json?
   // [{question, answer}] - null/rong = khong hien FAQ section.
   faq             Json?
+  // Danh sach "khoi noi dung" hien THE TREN CUNG bai (truoc than bai markdown) -
+  // yeu cau nguoi dung: "chia làm nửa trên... custom thêm đa dạng các
+  // element... sắp xếp thứ tự hiển thị". Moi phan tu: {id, type: "toc" |
+  // "install" | "buttonGroup" | "callout", ...config theo type} - THU TU
+  // TRONG MANG = thu tu hien thi (khong co orderIndex rieng, giong pattern
+  // ContentSeries.actions). null/rong = fallback ve hanh vi CU (1 box TOC H2
+  // tu dong, xem SeriesEntryContentBlocks.tsx) - entry cu KHONG can migrate
+  // du lieu.
+  contentBlocks   Json?
   readTimeMinutes Int                   @default(1)
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt

@@ -53,6 +53,13 @@ export class CreateContentSeriesEntryDto {
   @IsArray()
   faq?: unknown[];
 
+  // Khoi noi dung o dau bai (TOC box/install/buttonGroup/callout) - thu tu
+  // trong mang = thu tu hien thi. Xem comment tren field cung ten trong
+  // schema.prisma.
+  @IsOptional()
+  @IsArray()
+  contentBlocks?: unknown[];
+
   // Tuy chon - khong gui thi service tu tinh tu so tu trong contentMarkdown
   // (xem estimateReadTimeMinutes()).
   @IsOptional()

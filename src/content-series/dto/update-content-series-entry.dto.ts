@@ -57,6 +57,10 @@ export class UpdateContentSeriesEntryDto {
   faq?: unknown[];
 
   @IsOptional()
+  @IsArray()
+  contentBlocks?: unknown[];
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   readTimeMinutes?: number;
