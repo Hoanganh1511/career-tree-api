@@ -59,6 +59,15 @@ export class ContentSeriesController {
     return this.contentSeriesService.createSeries(dto);
   }
 
+  // KHONG bat dau bang ":slug" - dat SAU createSeries/TRUOC cac route
+  // ":slug" khac de tranh nham lan (du "reorder" khong trung 1 slug that
+  // nao trong thuc te, giu thu tu ro rang van tot hon).
+  @UseGuards(AdminGuard)
+  @Post('reorder')
+  reorderSeries(@Body() dto: ReorderItemsDto) {
+    return this.contentSeriesService.reorderSeries(dto.orderedIds);
+  }
+
   @UseGuards(AdminGuard)
   @Patch(':slug')
   updateSeries(

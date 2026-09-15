@@ -82,6 +82,37 @@ export class ContentSeriesService {
     });
   }
 
+  // Sap xep lai thu tu hien thi Series o trang /series (KHONG anh huong
+  // "Series mới nhất" o /home, van dua vao createdAt desc trong findAll() o
+  // tren) - cung tinh than reorderCategories o duoi, nhung sap xep TOAN BO
+  // Series (khong scope theo 1 Series cha nao ca).
+  async reorderSeries(orderedIds: string[]) {
+    const all = await this.prisma.contentSeries.findMany({
+      select: { id: true },
+    });
+    const validIds = new Set(all.map((s) => s.id));
+    if (
+      orderedIds.length !== all.length ||
+      !orderedIds.every((id) => validIds.has(id))
+    ) {
+      throw new BadRequestException(
+        'Danh sách Series không khớp với dữ liệu hiện có',
+      );
+    }
+    await this.prisma.$transaction(
+      orderedIds.map((id, index) =>
+        this.prisma.contentSeries.update({
+          where: { id },
+          data: { orderIndex: index },
+        }),
+      ),
+    );
+    return this.prisma.contentSeries.findMany({
+      orderBy: { orderIndex: 'asc' },
+      select: { id: true, orderIndex: true },
+    });
+  }
+
   // Trang tong quan (Overview): thong tin Series + toan bo category/entry
   // (FLAT, kem parentId/categoryId) - frontend tu dung de dung cay nav +
   // "Where this fits", giong pattern buildCommentTree o enggo (dung cay tu
@@ -158,6 +189,12 @@ export class ContentSeriesService {
     const slug = dto.slug
       ? slugify(dto.slug)
       : await this.uniqueSeriesSlug(dto.title);
+    // orderIndex - noi VAO CUOI danh sach /series (giong tinh than
+    // createCategory/createEntry) de series moi tao khong nhay len dau danh
+    // sach da sap xep tay cua admin.
+    const maxOrder = await this.prisma.contentSeries.aggregate({
+      _max: { orderIndex: true },
+    });
     const series = await this.prisma.contentSeries.create({
       data: {
         slug,
@@ -178,6 +215,25 @@ export class ContentSeriesService {
           'linkedin',
           'copy',
         ],
+        orderIndex: (maxOrder._max.orderIndex ?? -1) + 1,
+        // "Campaign card" - field nao dto khong gui (undefined) thi Prisma
+        // tu ap dung @default cua schema (badgeVariant "info", imagePosition
+        // "left"...), khong can tu dien gia tri o day.
+        badgeText: dto.badgeText,
+        badgeVariant: dto.badgeVariant,
+        badgeColor: dto.badgeColor,
+        badgeTextColor: dto.badgeTextColor,
+        deadlineAt: dto.deadlineAt ? new Date(dto.deadlineAt) : undefined,
+        imagePosition: dto.imagePosition,
+        imageWidthPercent: dto.imageWidthPercent,
+        imageFit: dto.imageFit,
+        backgroundColor: dto.backgroundColor,
+        textTheme: dto.textTheme,
+        cardStyle: dto.cardStyle,
+        actions: dto.actions as Prisma.InputJsonValue | undefined,
+        showBadge: dto.showBadge,
+        showDeadline: dto.showDeadline,
+        isVisible: dto.isVisible,
       },
     });
     // Nguyen tac MOI (yeu cau nguoi dung: "khi mà tạo 1 series ấy, thì luôn
@@ -226,6 +282,17 @@ export class ContentSeriesService {
         stats: dto.stats as Prisma.InputJsonValue | undefined,
         installTabs: dto.installTabs as Prisma.InputJsonValue | undefined,
         externalLinks: dto.externalLinks as Prisma.InputJsonValue | undefined,
+        // "Campaign card" - actions la JSON (giong stats/installTabs o tren).
+        // deadlineAt: dto gui string (IsDateString) hoac null (xoa) hoac
+        // undefined (khong doi) - "" khong the xay ra nua vi DTO validate
+        // rieng cho phep null, xem UpdateContentSeriesDto.
+        actions: dto.actions as Prisma.InputJsonValue | undefined,
+        deadlineAt:
+          dto.deadlineAt === undefined
+            ? undefined
+            : dto.deadlineAt === null
+              ? null
+              : new Date(dto.deadlineAt),
       },
     });
   }

@@ -1442,9 +1442,12 @@ model ContentSeries {
   description            String
   authorName             String
   authorAvatarUrl        String?
-  // Anh nen hero cho trang tong quan 1 Series (/series/[slug]) - optional,
-  // CHUA ap dung cho the trong rail "Series mới nhất" o /home hay danh sach
-  // /series (2 noi do co chu dich giu phang/khong anh, xem NewestSeriesRail.tsx).
+  // Anh nen hero cho trang tong quan 1 Series (/series/[slug]) - DA MO RONG
+  // (2026-09-15) sang dung CHUNG lam anh cho the "campaign card" o
+  // /home + /series (yeu cau nguoi dung: redesign the Series thanh dang
+  // banner co anh/badge/CTA, xem SeriesCampaignCard.tsx) - truoc day 2 noi
+  // do co chu dich giu phang/khong anh, nay doi huong nguoc lai theo yeu cau
+  // moi, sieu ro rang trong 1 lan yeu cau chi tiet.
   coverImageUrl          String?
   emailCourseEnabled     Boolean                 @default(false)
   emailCourseTitle       String?
@@ -1458,6 +1461,39 @@ model ContentSeries {
   externalLinks          Json                    @default("[]")
   // Danh sach kenh chia se bat, vd ["x","bluesky","linkedin","copy"].
   shareChannels          String[]                @default(["x", "bluesky", "linkedin", "copy"])
+  // --- The "campaign card" hien thi o /home (rail) + /series (list) - xem
+  // SeriesCampaignCard.tsx + tab "Thẻ hiển thị" trong SeriesManageTabs.tsx.
+  // orderIndex CHI dung de admin drag-reorder trang /series (KHONG anh
+  // huong thu tu "Series mới nhất" o /home, van dua vao createdAt desc,
+  // xem findAll()).
+  orderIndex             Int                     @default(0)
+  badgeText              String?
+  // info | success | warning | deadline | custom
+  badgeVariant           String                  @default("info")
+  // Dung khi badgeVariant = "custom".
+  badgeColor             String?
+  badgeTextColor         String?
+  // Hien thi dang "còn N ngày"/"Đã kết thúc" TAI THOI DIEM RENDER - KHONG co
+  // job/cron nao tu doi trang thai theo gio nay (nam ngoai pham vi yeu cau).
+  deadlineAt             DateTime?
+  // left | right
+  imagePosition          String                  @default("left")
+  imageWidthPercent      Int                     @default(45)
+  // cover | contain
+  imageFit               String                  @default("cover")
+  // null = dung nen surface mac dinh cua the.
+  backgroundColor        String?
+  // dark | light - quyet dinh mau chu tren backgroundColor.
+  textTheme              String                  @default("dark")
+  // default | soft | accent
+  cardStyle              String                  @default("default")
+  // [{id, label, url, style: primary|secondary|text, openInNewTab}]
+  actions                Json                    @default("[]")
+  showBadge              Boolean                 @default(true)
+  showDeadline           Boolean                 @default(true)
+  // An khoi /home + /series ma KHONG xoa - xem findAll()/findAllPublic con
+  // trang tong quan/doc Entry van xem duoc binh thuong qua URL truc tiep.
+  isVisible              Boolean                 @default(true)
   categories             ContentSeriesCategory[]
   entries                ContentSeriesEntry[]
   createdAt              DateTime                @default(now())
