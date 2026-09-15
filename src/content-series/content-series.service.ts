@@ -396,6 +396,17 @@ export class ContentSeriesService {
     });
     if (!category)
       throw new NotFoundException(`Category ${categoryId} khong ton tai`);
+    // Category goc "explore" - TUYET DOI khong cho xoa (yeu cau nguoi dung:
+    // "lúc tạo seri lúc nào cũng phải mặc định cứng 1 cái Explore và
+    // Map... tuyệt đối không được cho phép xóa. Vì nó là mặc định của
+    // route" - route /series/{slug} redirect thang toi entry "map" ben
+    // trong category nay, xoa mat se lam route goc gay). slug unique theo
+    // [seriesId, slug] nen kiem tra slug la du, khong can kiem parentId.
+    if (category.slug === 'explore' && category.parentId === null) {
+      throw new BadRequestException(
+        'Category "Explore" là mặc định của Series, không thể xoá.',
+      );
+    }
     if (category._count.entries > 0 || category._count.children > 0) {
       throw new BadRequestException(
         'Category còn Entry/nhóm con bên trong - chuyển hoặc xoá hết trước khi xoá category.',
@@ -588,6 +599,14 @@ export class ContentSeriesService {
       where: { id: entryId, seriesId },
     });
     if (!entry) throw new NotFoundException(`Entry ${entryId} khong ton tai`);
+    // Entry "map" - TUYET DOI khong cho xoa, cung ly do voi category
+    // "explore" o deleteCategory (mac dinh cua route /series/{slug}, xem
+    // comment o do).
+    if (entry.slug === 'map') {
+      throw new BadRequestException(
+        'Entry "Map" là mặc định của Series, không thể xoá.',
+      );
+    }
     await this.prisma.contentSeriesEntry.delete({ where: { id: entryId } });
   }
 
