@@ -1559,6 +1559,16 @@ model ContentSeriesEntry {
   // tu dong, xem SeriesEntryContentBlocks.tsx) - entry cu KHONG can migrate
   // du lieu.
   contentBlocks   Json?
+  // [2026-09-17] Danh sach section+thuat ngu cho layout "Dictionary" (khac
+  // HOAN TOAN bai viet tuan tu thuong: search + sidebar Sections + luoi 2
+  // cot) - yeu cau nguoi dung: "bổ sung thêm 1 cate Guides... trong này sẽ
+  // có 1 page mặc định là: Dictionary" roi sau do "Làm đi" (chuyen tu du
+  // lieu tinh trong component sang DB-backed, sua duoc qua admin UI). null/
+  // rong = Entry render nhu bai viet BINH THUONG (KHONG dung layout nay) -
+  // [entrySlug]/page.tsx quyet dinh dung SeriesDictionaryView hay khong DUA
+  // TREN SU CO MAT cua field nay (khong con hardcode theo slug entry nua).
+  // Shape: [{ id, title, terms: [{ term, description, href? }] }].
+  dictionarySections Json?
   readTimeMinutes Int                   @default(1)
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt

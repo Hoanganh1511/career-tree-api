@@ -60,6 +60,12 @@ export class CreateContentSeriesEntryDto {
   @IsArray()
   contentBlocks?: unknown[];
 
+  // Layout "Dictionary" - xem comment ContentSeriesEntry.dictionarySections
+  // trong schema.prisma.
+  @IsOptional()
+  @IsArray()
+  dictionarySections?: unknown[];
+
   // Tuy chon - khong gui thi service tu tinh tu so tu trong contentMarkdown
   // (xem estimateReadTimeMinutes()).
   @IsOptional()

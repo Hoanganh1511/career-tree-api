@@ -544,6 +544,7 @@ export class ContentSeriesService {
         installTabs: dto.installTabs as Prisma.InputJsonValue | undefined,
         faq: dto.faq as Prisma.InputJsonValue | undefined,
         contentBlocks: dto.contentBlocks as Prisma.InputJsonValue | undefined,
+        dictionarySections: dto.dictionarySections as Prisma.InputJsonValue | undefined,
         readTimeMinutes:
           dto.readTimeMinutes ?? estimateReadTimeMinutes(dto.contentMarkdown),
       },
@@ -582,6 +583,7 @@ export class ContentSeriesService {
         installTabs: dto.installTabs as Prisma.InputJsonValue | undefined,
         faq: dto.faq as Prisma.InputJsonValue | undefined,
         contentBlocks: dto.contentBlocks as Prisma.InputJsonValue | undefined,
+        dictionarySections: dto.dictionarySections as Prisma.InputJsonValue | undefined,
         // readTimeMinutes tu tinh lai NEU sua noi dung ma khong tu ghi de tay
         // trong CUNG request nay - tranh so phut "dinh" sai sau khi sua nhieu.
         readTimeMinutes:

@@ -60,6 +60,13 @@ export class UpdateContentSeriesEntryDto {
   @IsArray()
   contentBlocks?: unknown[];
 
+  // Layout "Dictionary" (search + sidebar Sections + luoi thuat ngu) - xem
+  // comment ContentSeriesEntry.dictionarySections trong schema.prisma.
+  // null/[] = Entry render nhu bai viet binh thuong.
+  @IsOptional()
+  @IsArray()
+  dictionarySections?: unknown[];
+
   @IsOptional()
   @IsInt()
   @Min(1)
