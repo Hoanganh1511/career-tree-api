@@ -27,7 +27,7 @@ export class CreateContentSeriesEntryDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(200)
+  @MaxLength(500)
   subtitle?: string;
 
   @IsOptional()

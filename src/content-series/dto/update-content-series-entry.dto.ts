@@ -31,7 +31,7 @@ export class UpdateContentSeriesEntryDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(200)
+  @MaxLength(500)
   subtitle?: string;
 
   @IsOptional()
