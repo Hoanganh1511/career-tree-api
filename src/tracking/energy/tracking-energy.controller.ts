@@ -17,7 +17,10 @@ export class TrackingEnergyController {
   }
 
   @Post()
-  create(@CurrentUserId() userId: string, @Body() dto: CreateTrackingEnergyCheckinDto) {
+  create(
+    @CurrentUserId() userId: string,
+    @Body() dto: CreateTrackingEnergyCheckinDto,
+  ) {
     return this.trackingEnergyService.create(userId, dto);
   }
 

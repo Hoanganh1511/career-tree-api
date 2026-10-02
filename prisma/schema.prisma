@@ -1358,6 +1358,41 @@ model TrackingTask {
   @@index([userId, date])
 }
 
+// Planner - trang /planner RIENG, HOAN TOAN MOI (yeu cau nguoi dung: "Tính
+// năng này mới hoàn toàn, các cái gì xung đột về planner cũ xóa đi") - KHONG
+// tai dung TrackingTask (model tren, thuoc ve DailyCommandCenterShell dang
+// khoa o /tracking) de tranh dinh vao logic/rang buoc cua tinh nang cu. Moi
+// PlannerItem la 1 dong checklist trong 1 ngay, co the la "planner đơn"
+// (SIMPLE) hoac "planner lớn" (BIG, chua duoc cac PlannerItem con qua
+// `children` - 1 cap, khong long BIG trong BIG o UI).
+enum PlannerItemKind {
+  SIMPLE
+  BIG
+}
+
+model PlannerItem {
+  id              String          @id @default(uuid())
+  userId          String
+  date            DateTime        @db.Date
+  title           String
+  kind            PlannerItemKind @default(SIMPLE)
+  // Gio len lich cu the trong ngay (phut tinh tu 0h, vd 9:30 = 570) - nullable,
+  // khong bat buoc moi item deu co gio.
+  scheduledMinute Int?
+  done            Boolean         @default(false)
+  // Thu tu hien thi THEO Y nguoi dung sap xep - rieng trong pham vi 1 ngay
+  // (top-level) hoac 1 cha (children).
+  orderIndex      Int             @default(0)
+  parentId        String?
+  parent          PlannerItem?    @relation("PlannerItemChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children        PlannerItem[]   @relation("PlannerItemChildren")
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([userId, date])
+  @@index([parentId])
+}
+
 model TrackingEnergyCheckin {
   id        String   @id @default(uuid())
   userId    String

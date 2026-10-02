@@ -16,7 +16,11 @@ export class TrackingWellnessService {
 
   // 1 log/ngay/user - dua vao @@unique([userId, date]) trong schema, upsert
   // thay vi phai tach create/update rieng (form FE luon PUT ca object).
-  async upsert(userId: string, date: string, dto: UpsertTrackingWellnessLogDto) {
+  async upsert(
+    userId: string,
+    date: string,
+    dto: UpsertTrackingWellnessLogDto,
+  ) {
     const log = await this.prisma.trackingWellnessLog.upsert({
       where: { userId_date: { userId, date: new Date(date) } },
       create: {
@@ -52,7 +56,8 @@ export class TrackingWellnessService {
       take: 30,
       select: { date: true, sleepHours: true },
     });
-    if (logs.length === 0) return { withGoodSleep: null, withoutGoodSleep: null };
+    if (logs.length === 0)
+      return { withGoodSleep: null, withoutGoodSleep: null };
 
     const dates = logs.map((l) => l.date);
     const tasks = await this.prisma.trackingTask.findMany({

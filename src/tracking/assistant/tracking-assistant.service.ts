@@ -25,7 +25,10 @@ export class TrackingAssistantService {
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
       messages: [
-        { role: 'user', content: `Số liệu 7 ngày qua:\n${JSON.stringify(summary, null, 2)}` },
+        {
+          role: 'user',
+          content: `Số liệu 7 ngày qua:\n${JSON.stringify(summary, null, 2)}`,
+        },
       ],
     });
 

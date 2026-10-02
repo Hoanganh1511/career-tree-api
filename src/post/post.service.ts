@@ -28,7 +28,11 @@ type PostWithAuthor = Prisma.PostGetPayload<{
 // `timeAgo`: `following` khong con noi nao doc (bo tab Following tu lau),
 // `timeAgo` thay bang `createdAt` that - frontend tu tinh qua
 // formatRelativeTime() thay vi nhan chuoi "2h" dung san.
-export function toApiPost(post: PostWithAuthor, likedByMe = false, savedByMe = false) {
+export function toApiPost(
+  post: PostWithAuthor,
+  likedByMe = false,
+  savedByMe = false,
+) {
   return {
     id: post.id,
     kind: toApiKind(post.kind),
@@ -136,7 +140,9 @@ export class PostService {
     ]);
     const likedPostIds = new Set(likedRows.map((r) => r.postId));
     const savedPostIds = new Set(savedRows.map((r) => r.postId));
-    return posts.map((p) => toApiPost(p, likedPostIds.has(p.id), savedPostIds.has(p.id)));
+    return posts.map((p) =>
+      toApiPost(p, likedPostIds.has(p.id), savedPostIds.has(p.id)),
+    );
   }
 
   // Dung cho trang chi tiet 1 bai viet (enggo: /p/[id]) - tra ve null (khong

@@ -8,7 +8,10 @@ import {
   MaxLength,
 } from 'class-validator';
 import { POST_KINDS, type PostKindApi } from '../post-kind.util';
-import { POST_VISIBILITIES, type PostVisibilityApi } from '../post-visibility.util';
+import {
+  POST_VISIBILITIES,
+  type PostVisibilityApi,
+} from '../post-visibility.util';
 import { PostCategory } from '../../../generated/prisma/client';
 
 const POST_CATEGORIES = Object.values(PostCategory);

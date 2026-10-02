@@ -1,4 +1,12 @@
-import { IsDateString, IsInt, IsNotEmpty, IsOptional, IsString, Min, MaxLength } from 'class-validator';
+import {
+  IsDateString,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateTrackingGoalStepDto {
   @IsString()

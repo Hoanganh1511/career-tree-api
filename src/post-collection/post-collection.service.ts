@@ -34,7 +34,13 @@ function toApiCollection(c: PostCollection) {
 // "bo suu tap cua toi"/"bo suu tap 1 nguoi cu the".
 function toApiCollectionWithOwner(
   c: PostCollection & {
-    user: { id: string; username: string | null; name: string; avatarUrl: string | null; verified: boolean };
+    user: {
+      id: string;
+      username: string | null;
+      name: string;
+      avatarUrl: string | null;
+      verified: boolean;
+    };
   },
   followingOwnerIds: Set<string>,
 ) {
@@ -233,9 +239,7 @@ export class PostCollectionService {
       visibility: 'PUBLIC',
       ...(scope === 'following' ? { userId: { in: followingIds } } : {}),
       ...(topic ? { topic: toDbTopic(topic) } : {}),
-      ...(search
-        ? { title: { contains: search, mode: 'insensitive' } }
-        : {}),
+      ...(search ? { title: { contains: search, mode: 'insensitive' } } : {}),
     };
     const orderBy: Prisma.PostCollectionOrderByWithRelationInput =
       sort === 'most-posts'

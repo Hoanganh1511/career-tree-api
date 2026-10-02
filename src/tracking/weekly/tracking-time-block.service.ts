@@ -11,8 +11,13 @@ import { UpdateTrackingTimeBlockDto } from './dto/update-tracking-time-block.dto
 export class TrackingTimeBlockService {
   constructor(private prisma: PrismaService) {}
 
-  private async assertOwner(userId: string, blockId: string): Promise<TrackingTimeBlock> {
-    const block = await this.prisma.trackingTimeBlock.findUnique({ where: { id: blockId } });
+  private async assertOwner(
+    userId: string,
+    blockId: string,
+  ): Promise<TrackingTimeBlock> {
+    const block = await this.prisma.trackingTimeBlock.findUnique({
+      where: { id: blockId },
+    });
     if (!block || block.userId !== userId) {
       throw new NotFoundException(`TrackingTimeBlock ${blockId} not found`);
     }
@@ -45,7 +50,11 @@ export class TrackingTimeBlockService {
     return this.toApi(block);
   }
 
-  async update(userId: string, blockId: string, dto: UpdateTrackingTimeBlockDto) {
+  async update(
+    userId: string,
+    blockId: string,
+    dto: UpdateTrackingTimeBlockDto,
+  ) {
     await this.assertOwner(userId, blockId);
     const block = await this.prisma.trackingTimeBlock.update({
       where: { id: blockId },

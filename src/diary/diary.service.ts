@@ -101,11 +101,7 @@ export class DiaryService {
     return this.entryToApi(entry);
   }
 
-  async updateEntry(
-    userId: string,
-    entryId: string,
-    dto: UpdateDiaryEntryDto,
-  ) {
+  async updateEntry(userId: string, entryId: string, dto: UpdateDiaryEntryDto) {
     await this.assertEntryOwner(userId, entryId);
     const entry = await this.prisma.diaryEntry.update({
       where: { id: entryId },

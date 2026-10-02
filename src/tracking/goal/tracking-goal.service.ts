@@ -29,8 +29,13 @@ type GoalWithNested = TrackingGoal & {
 export class TrackingGoalService {
   constructor(private prisma: PrismaService) {}
 
-  private async assertGoalOwner(userId: string, goalId: string): Promise<TrackingGoal> {
-    const goal = await this.prisma.trackingGoal.findUnique({ where: { id: goalId } });
+  private async assertGoalOwner(
+    userId: string,
+    goalId: string,
+  ): Promise<TrackingGoal> {
+    const goal = await this.prisma.trackingGoal.findUnique({
+      where: { id: goalId },
+    });
     if (!goal || goal.userId !== userId) {
       throw new NotFoundException(`TrackingGoal ${goalId} not found`);
     }
@@ -51,7 +56,10 @@ export class TrackingGoalService {
     return milestone;
   }
 
-  private async assertStepOwner(userId: string, stepId: string): Promise<TrackingGoalStep> {
+  private async assertStepOwner(
+    userId: string,
+    stepId: string,
+  ): Promise<TrackingGoalStep> {
     const step = await this.prisma.trackingGoalStep.findUnique({
       where: { id: stepId },
       include: { goal: true },
@@ -129,7 +137,11 @@ export class TrackingGoalService {
     await this.prisma.trackingGoal.delete({ where: { id: goalId } });
   }
 
-  async createMilestone(userId: string, goalId: string, dto: CreateTrackingMilestoneDto) {
+  async createMilestone(
+    userId: string,
+    goalId: string,
+    dto: CreateTrackingMilestoneDto,
+  ) {
     await this.assertGoalOwner(userId, goalId);
     const last = await this.prisma.trackingMilestone.findFirst({
       where: { goalId },
@@ -137,12 +149,20 @@ export class TrackingGoalService {
       select: { orderIndex: true },
     });
     const milestone = await this.prisma.trackingMilestone.create({
-      data: { goalId, title: dto.title, orderIndex: (last?.orderIndex ?? -1) + 1 },
+      data: {
+        goalId,
+        title: dto.title,
+        orderIndex: (last?.orderIndex ?? -1) + 1,
+      },
     });
     return this.milestoneToApi({ ...milestone, steps: [] });
   }
 
-  async updateMilestone(userId: string, milestoneId: string, dto: UpdateTrackingMilestoneDto) {
+  async updateMilestone(
+    userId: string,
+    milestoneId: string,
+    dto: UpdateTrackingMilestoneDto,
+  ) {
     await this.assertMilestoneOwner(userId, milestoneId);
     const milestone = await this.prisma.trackingMilestone.update({
       where: { id: milestoneId },
@@ -164,7 +184,11 @@ export class TrackingGoalService {
 
   // Tao step TRUC TIEP duoi goal (khong qua milestone) - giu de tuong thich
   // nguoc, van dung khi nguoi dung chua can chia milestone.
-  async createStep(userId: string, goalId: string, dto: CreateTrackingGoalStepDto) {
+  async createStep(
+    userId: string,
+    goalId: string,
+    dto: CreateTrackingGoalStepDto,
+  ) {
     await this.assertGoalOwner(userId, goalId);
     const last = await this.prisma.trackingGoalStep.findFirst({
       where: { goalId, milestoneId: null },
@@ -209,7 +233,11 @@ export class TrackingGoalService {
     return this.stepToApi(step);
   }
 
-  async updateStep(userId: string, stepId: string, dto: UpdateTrackingGoalStepDto) {
+  async updateStep(
+    userId: string,
+    stepId: string,
+    dto: UpdateTrackingGoalStepDto,
+  ) {
     await this.assertStepOwner(userId, stepId);
     const step = await this.prisma.trackingGoalStep.update({
       where: { id: stepId },
@@ -241,14 +269,23 @@ export class TrackingGoalService {
       where: { goal: { userId }, done: false },
       select: { estimatedMinutes: true },
     });
-    const neededMinutes = steps.reduce((sum, s) => sum + (s.estimatedMinutes ?? 0), 0);
+    const neededMinutes = steps.reduce(
+      (sum, s) => sum + (s.estimatedMinutes ?? 0),
+      0,
+    );
     const neededHours = Math.round((neededMinutes / 60) * 10) / 10;
-    const settings = await this.prisma.trackingSettings.findUnique({ where: { userId } });
-    const availableHours = settings?.weeklyAvailableHours ?? DEFAULT_WEEKLY_AVAILABLE_HOURS;
+    const settings = await this.prisma.trackingSettings.findUnique({
+      where: { userId },
+    });
+    const availableHours =
+      settings?.weeklyAvailableHours ?? DEFAULT_WEEKLY_AVAILABLE_HOURS;
     return {
       neededHours,
       availableHours,
-      overloadHours: Math.max(0, Math.round((neededHours - availableHours) * 10) / 10),
+      overloadHours: Math.max(
+        0,
+        Math.round((neededHours - availableHours) * 10) / 10,
+      ),
     };
   }
 
@@ -266,8 +303,12 @@ export class TrackingGoalService {
       id: goal.id,
       title: goal.title,
       category: goal.category,
-      startDate: goal.startDate ? goal.startDate.toISOString().slice(0, 10) : null,
-      targetDate: goal.targetDate ? goal.targetDate.toISOString().slice(0, 10) : null,
+      startDate: goal.startDate
+        ? goal.startDate.toISOString().slice(0, 10)
+        : null,
+      targetDate: goal.targetDate
+        ? goal.targetDate.toISOString().slice(0, 10)
+        : null,
       important: goal.important,
       controllable: goal.controllable,
       why: goal.why,
@@ -283,7 +324,9 @@ export class TrackingGoalService {
   // Tuan hien tai (Thu 2 -> CN, so theo ngay UTC vi dueDate luu @db.Date).
   private currentWeekRange(): { start: Date; end: Date } {
     const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const today = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
     const day = today.getUTCDay(); // 0=CN .. 6=T7
     const mondayOffset = day === 0 ? -6 : 1 - day;
     const start = new Date(today);
@@ -300,7 +343,10 @@ export class TrackingGoalService {
     );
     const weeklyProgress =
       stepsThisWeek.length > 0
-        ? { done: stepsThisWeek.filter((s) => s.done).length, total: stepsThisWeek.length }
+        ? {
+            done: stepsThisWeek.filter((s) => s.done).length,
+            total: stepsThisWeek.length,
+          }
         : null;
     return {
       id: milestone.id,

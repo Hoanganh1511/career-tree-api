@@ -48,7 +48,9 @@ export class TrackingEnergyService {
   // UTC xuyen suot (ca luc tao checkin lan luc gom nhom o day) de nhat quan
   // - gio hien thi co the lech vai tieng so voi gio dia phuong thuc te cua
   // user (han che da biet, ngoai pham vi sua trong 1 luot nay).
-  async bestHour(userId: string): Promise<{ hour: number; avgMental: number } | null> {
+  async bestHour(
+    userId: string,
+  ): Promise<{ hour: number; avgMental: number } | null> {
     const checkins = await this.prisma.trackingEnergyCheckin.findMany({
       where: { userId },
       select: { checkedAt: true, mental: true },

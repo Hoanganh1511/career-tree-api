@@ -9,7 +9,12 @@ import {
   Min,
 } from 'class-validator';
 
-const SKIP_REASONS = ['AVOIDANCE', 'OUT_OF_TIME', 'INTERRUPTED', 'MISESTIMATED'] as const;
+const SKIP_REASONS = [
+  'AVOIDANCE',
+  'OUT_OF_TIME',
+  'INTERRUPTED',
+  'MISESTIMATED',
+] as const;
 
 export class UpdateTrackingTaskDto {
   @IsOptional()

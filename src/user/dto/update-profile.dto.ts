@@ -23,7 +23,8 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   @Matches(/^[a-z0-9._]{3,30}$/, {
-    message: 'username chỉ gồm chữ thường, số, dấu chấm, gạch dưới (3-30 ký tự)',
+    message:
+      'username chỉ gồm chữ thường, số, dấu chấm, gạch dưới (3-30 ký tự)',
   })
   username?: string;
 

@@ -140,7 +140,9 @@ export class TrackingAnalyticsService {
 }
 
 function avg(values: number[]): number {
-  return Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 10) / 10;
+  return (
+    Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 10) / 10
+  );
 }
 
 function nextWindow(): { fromDate: Date; toDate: Date } {

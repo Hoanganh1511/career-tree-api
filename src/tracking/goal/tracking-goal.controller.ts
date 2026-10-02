@@ -38,7 +38,10 @@ export class TrackingGoalController {
   }
 
   @Put('settings')
-  upsertSettings(@CurrentUserId() userId: string, @Body() dto: UpsertTrackingSettingsDto) {
+  upsertSettings(
+    @CurrentUserId() userId: string,
+    @Body() dto: UpsertTrackingSettingsDto,
+  ) {
     return this.trackingGoalService.upsertSettings(userId, dto);
   }
 
@@ -82,7 +85,10 @@ export class TrackingGoalController {
 
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete('milestones/:milestoneId')
-  removeMilestone(@CurrentUserId() userId: string, @Param('milestoneId') milestoneId: string) {
+  removeMilestone(
+    @CurrentUserId() userId: string,
+    @Param('milestoneId') milestoneId: string,
+  ) {
     return this.trackingGoalService.removeMilestone(userId, milestoneId);
   }
 
@@ -92,7 +98,11 @@ export class TrackingGoalController {
     @Param('milestoneId') milestoneId: string,
     @Body() dto: CreateTrackingGoalStepDto,
   ) {
-    return this.trackingGoalService.createStepUnderMilestone(userId, milestoneId, dto);
+    return this.trackingGoalService.createStepUnderMilestone(
+      userId,
+      milestoneId,
+      dto,
+    );
   }
 
   @Post(':id/steps')

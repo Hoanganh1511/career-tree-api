@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   TrackingGroup,
@@ -30,10 +34,14 @@ export class TrackingGroupService {
   async listMine(userId: string) {
     const memberships = await this.prisma.trackingGroupMember.findMany({
       where: { userId },
-      include: { group: { include: { _count: { select: { members: true } } } } },
+      include: {
+        group: { include: { _count: { select: { members: true } } } },
+      },
       orderBy: { joinedAt: 'desc' },
     });
-    return memberships.map((m) => this.groupToApi(m.group, m.group._count.members));
+    return memberships.map((m) =>
+      this.groupToApi(m.group, m.group._count.members),
+    );
   }
 
   async create(userId: string, dto: CreateTrackingGroupDto) {
@@ -82,7 +90,11 @@ export class TrackingGroupService {
     };
   }
 
-  async createSession(userId: string, groupId: string, dto: CreateTrackingGroupSessionDto) {
+  async createSession(
+    userId: string,
+    groupId: string,
+    dto: CreateTrackingGroupSessionDto,
+  ) {
     await this.assertMember(userId, groupId);
     const session = await this.prisma.trackingGroupSession.create({
       data: { groupId, userId, goalText: dto.goalText },
@@ -98,7 +110,10 @@ export class TrackingGroupService {
     const session = await this.prisma.trackingGroupSession.findUnique({
       where: { id: sessionId },
     });
-    if (!session) throw new NotFoundException(`TrackingGroupSession ${sessionId} not found`);
+    if (!session)
+      throw new NotFoundException(
+        `TrackingGroupSession ${sessionId} not found`,
+      );
     // Chi chinh chu phien moi duoc ket thuc no - khac assertMember (xem
     // nhom thi ai cung xem duoc, nhung "ket thuc phien cua nguoi khac" la
     // hanh dong, phai la chinh chu.

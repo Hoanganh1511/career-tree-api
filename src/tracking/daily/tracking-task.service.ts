@@ -8,8 +8,13 @@ import { UpdateTrackingTaskDto } from './dto/update-tracking-task.dto';
 export class TrackingTaskService {
   constructor(private prisma: PrismaService) {}
 
-  private async assertOwner(userId: string, taskId: string): Promise<TrackingTask> {
-    const task = await this.prisma.trackingTask.findUnique({ where: { id: taskId } });
+  private async assertOwner(
+    userId: string,
+    taskId: string,
+  ): Promise<TrackingTask> {
+    const task = await this.prisma.trackingTask.findUnique({
+      where: { id: taskId },
+    });
     if (!task || task.userId !== userId) {
       throw new NotFoundException(`TrackingTask ${taskId} not found`);
     }

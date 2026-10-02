@@ -25,7 +25,10 @@ export class TrackingTimeBlockController {
   }
 
   @Post()
-  create(@CurrentUserId() userId: string, @Body() dto: CreateTrackingTimeBlockDto) {
+  create(
+    @CurrentUserId() userId: string,
+    @Body() dto: CreateTrackingTimeBlockDto,
+  ) {
     return this.trackingTimeBlockService.create(userId, dto);
   }
 

@@ -28,6 +28,7 @@ import { GifModule } from './gif/gif.module';
 import { BooksModule } from './books/books.module';
 import { DiaryModule } from './diary/diary.module';
 import { TrackingModule } from './tracking/tracking.module';
+import { PlannerModule } from './planner/planner.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { TrackingModule } from './tracking/tracking.module';
     BooksModule,
     DiaryModule,
     TrackingModule,
+    PlannerModule,
   ],
   controllers: [AppController],
   providers: [AppService],
