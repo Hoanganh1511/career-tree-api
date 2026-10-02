@@ -4,7 +4,9 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 export class UpdatePlannerItemDto {
@@ -23,6 +25,15 @@ export class UpdatePlannerItemDto {
   @IsInt()
   @Min(0)
   scheduledMinute?: number | null;
+
+  // null = bo mau da dat (ve lai mac dinh), cung tinh than voi scheduledMinute
+  // o tren - phan biet voi "khong truyen" (giu nguyen) qua `'color' in dto`.
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Matches(/^#[0-9a-fA-F]{6}$/, {
+    message: 'Mã màu phải ở định dạng hex (vd "#ef4444").',
+  })
+  color?: string | null;
 
   @IsOptional()
   @IsInt()

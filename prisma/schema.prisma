@@ -1379,6 +1379,12 @@ model PlannerItem {
   // Gio len lich cu the trong ngay (phut tinh tu 0h, vd 9:30 = 570) - nullable,
   // khong bat buoc moi item deu co gio.
   scheduledMinute Int?
+  // Mau the (hex, vd "#ef4444") - nguoi dung tu chon luc tao, dung de ve
+  // border-top mau tren the checklist (ca trong o lich LAN panel chi tiet
+  // ngay). null = khong mau (border xam mac dinh) - xem TEXT_COLORS trong
+  // PlannerShell.tsx (frontend), tai dung DUNG 7 mau da co o SelectionFloatingMenu.tsx
+  // (editor) cho nhat quan mau sac toan app, khong bia bang mau rieng.
+  color           String?
   done            Boolean         @default(false)
   // Thu tu hien thi THEO Y nguoi dung sap xep - rieng trong pham vi 1 ngay
   // (top-level) hoac 1 cha (children).
