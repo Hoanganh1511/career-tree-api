@@ -23,6 +23,8 @@ export interface PlannerItemApi {
   kind: string;
   scheduledMinute: number | null;
   color: string | null;
+  durationMinutes: number | null;
+  isFocus: boolean;
   done: boolean;
   orderIndex: number;
   parentId: string | null;
@@ -94,6 +96,8 @@ export class PlannerService {
           kind: 'SIMPLE',
           scheduledMinute: dto.scheduledMinute,
           color: dto.color,
+          durationMinutes: dto.durationMinutes,
+          isFocus: dto.isFocus ?? false,
           parentId: dto.parentId,
           orderIndex: (last?.orderIndex ?? -1) + 1,
         },
@@ -114,6 +118,8 @@ export class PlannerService {
         kind: dto.kind ?? 'SIMPLE',
         scheduledMinute: dto.scheduledMinute,
         color: dto.color,
+        durationMinutes: dto.durationMinutes,
+        isFocus: dto.isFocus ?? false,
         orderIndex: (last?.orderIndex ?? -1) + 1,
       },
     });
@@ -136,6 +142,9 @@ export class PlannerService {
         // 'color' in dto - cung tinh than voi scheduledMinute o tren (phan
         // biet "khong truyen" = giu nguyen voi "truyen null" = xoa mau da dat).
         color: 'color' in dto ? dto.color : undefined,
+        durationMinutes:
+          'durationMinutes' in dto ? dto.durationMinutes : undefined,
+        isFocus: dto.isFocus,
         orderIndex: dto.orderIndex,
       },
     });
@@ -156,6 +165,8 @@ export class PlannerService {
       kind: item.kind,
       scheduledMinute: item.scheduledMinute,
       color: item.color,
+      durationMinutes: item.durationMinutes,
+      isFocus: item.isFocus,
       done: item.done,
       orderIndex: item.orderIndex,
       parentId: item.parentId,

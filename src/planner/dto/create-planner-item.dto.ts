@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDateString,
   IsIn,
   IsInt,
@@ -40,6 +41,18 @@ export class CreatePlannerItemDto {
     message: 'Mã màu phải ở định dạng hex (vd "#ef4444").',
   })
   color?: string;
+
+  // Thoi luong (phut) - xem comment schema.prisma. Toi thieu 1 phut (0 vo
+  // nghia cho 1 khoang thoi gian).
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  durationMinutes?: number;
+
+  // Danh dau "việc trọng tâm hôm nay" - xem comment schema.prisma.
+  @IsOptional()
+  @IsBoolean()
+  isFocus?: boolean;
 
   // Chen 1 dau viec CON vao duoi 1 planner "lớn" da co san (phai la top-level
   // item, PlannerService tu kiem tra chu so huu + khong cho long qua 1 cap).

@@ -1385,6 +1385,20 @@ model PlannerItem {
   // PlannerShell.tsx (frontend), tai dung DUNG 7 mau da co o SelectionFloatingMenu.tsx
   // (editor) cho nhat quan mau sac toan app, khong bia bang mau rieng.
   color           String?
+  // [2026-10-05] Thoi luong (phut) - yeu cau nguoi dung (redesign Planner
+  // "Right Panel"): timeline "09:30 — 11:00", progress "gio da lam/tong gio",
+  // chia cot khi 2 viec trung gio deu can biet gio KET THUC (truoc day chi co
+  // scheduledMinute = gio BAT DAU). null = chua dat (item cu truoc migration
+  // nay, hoac nguoi dung khong nhap) - FE tu fallback ve 1 do dai mac dinh
+  // khi ve UI (xem DEFAULT_DURATION_MINUTES trong PlannerShell.tsx).
+  durationMinutes Int?
+  // Nguoi dung TU danh dau 1 viec la "trong tam" cua ngay (yeu cau nguoi
+  // dung: "Today's Focus... cách mình recommend cho MVP: User tự chọn ⭐ khi
+  // tạo task"). CHI 1 item isFocus=true MOI thuc su y nghia tai 1 thoi diem
+  // cho 1 ngay ve mat UX (PlannerShell.tsx tu lay item DAU TIEN co co nay),
+  // nhung KHONG rang buoc unique o DB (don gian hoa - neu nguoi dung lo danh
+  // dau 2 viec, UI chi hien viec dau tien, khong loi).
+  isFocus         Boolean         @default(false)
   done            Boolean         @default(false)
   // Thu tu hien thi THEO Y nguoi dung sap xep - rieng trong pham vi 1 ngay
   // (top-level) hoac 1 cha (children).

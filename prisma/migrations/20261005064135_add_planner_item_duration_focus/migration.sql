@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "PlannerItem" ADD COLUMN IF NOT EXISTS "durationMinutes" INTEGER;
+ALTER TABLE "PlannerItem" ADD COLUMN IF NOT EXISTS "isFocus" BOOLEAN NOT NULL DEFAULT false;

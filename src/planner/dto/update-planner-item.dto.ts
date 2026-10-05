@@ -35,6 +35,18 @@ export class UpdatePlannerItemDto {
   })
   color?: string | null;
 
+  // null = bo thoi luong da dat, cung tinh than voi scheduledMinute/color o
+  // tren - phan biet voi "khong truyen" qua `'durationMinutes' in dto`.
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsInt()
+  @Min(1)
+  durationMinutes?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isFocus?: boolean;
+
   @IsOptional()
   @IsInt()
   @Min(0)
