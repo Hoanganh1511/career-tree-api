@@ -29,6 +29,7 @@ import { BooksModule } from './books/books.module';
 import { DiaryModule } from './diary/diary.module';
 import { TrackingModule } from './tracking/tracking.module';
 import { PlannerModule } from './planner/planner.module';
+import { NotesModule } from './notes/notes.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { PlannerModule } from './planner/planner.module';
     DiaryModule,
     TrackingModule,
     PlannerModule,
+    NotesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

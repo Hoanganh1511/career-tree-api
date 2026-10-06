@@ -1627,9 +1627,41 @@ model ContentSeriesEntry {
   readTimeMinutes Int                   @default(1)
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
+  notes           Note[]
 
   @@unique([seriesId, slug])
   @@unique([seriesId, orderIndex])
   @@index([seriesId, orderIndex])
   @@index([categoryId])
+}
+
+// Ghi chu ca nhan cua nguoi dung, gan vao 1 doan text CU THE trong 1 Entry
+// (hoac khong gan doan nao - note thu cong) - yeu cau nguoi dung (spec "My
+// Notes"): "đừng chỉ có một loại Note" (6 loai, xem `type`) + "note sẽ giữ
+// reference tới đoạn text gốc... khi click note, article tự scroll tới đúng
+// đoạn". quoteText/quotePrefix/quoteSuffix dung CHUNG 1 chien luoc anchor voi
+// Highlight model (quote+prefix/suffix, xem exactText/prefixText/suffixText
+// cua Highlight o tren) - nhung Note gan vao ContentSeriesEntry (he thong
+// Series dang dung THAT), khac Highlight von gan vao Article (he thong CU).
+// `type` la String THUONG (khong phai enum) - validate qua class-validator
+// @IsIn o DTO (xem career-tree-api/src/notes/dto) - gia tri giu NGUYEN VAN
+// camelCase khop 1-1 voi NoteType phia FE (src/lib/notes/note-types.ts),
+// tranh 1 lop map enum<->string o giua khong can thiet.
+model Note {
+  id           String   @id @default(uuid())
+  userId       String
+  entryId      String
+  entry        ContentSeriesEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  seriesSlug   String
+  type         String
+  content      String
+  tags         String[] @default([])
+  quoteText    String?
+  quotePrefix  String?
+  quoteSuffix  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId, entryId])
+  @@index([userId, seriesSlug])
 }
