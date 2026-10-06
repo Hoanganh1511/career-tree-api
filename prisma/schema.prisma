@@ -1426,6 +1426,13 @@ model PlannerItem {
   // dau 2 viec, UI chi hien viec dau tien, khong loi).
   isFocus         Boolean         @default(false)
   done            Boolean         @default(false)
+  // [2026-10-07] "Nội dung chi tiết" rieng - yeu cau nguoi dung: "task cần
+  // phải có phần viết nội dung chi tiết của task nữa" (khac `title` ngan +
+  // khac `status`/`area`/`project` deu la nhan NGAN, field nay la TEXT TU DO,
+  // dai bao nhieu cung duoc - String cua Prisma tren provider postgresql mac
+  // dinh da la kieu `text` khong gioi han, khong can @db.Text).
+  description     String?
+
   // [2026-10-06] Metadata MOI theo spec "Good Life" - tat ca deu OPTIONAL
   // (khong bat buoc dien, "progressive disclosure"). priority/area/project/
   // tags/deadline dung CHUNG cho moi Type (spec section 8-16: day la

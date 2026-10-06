@@ -47,6 +47,7 @@ export interface PlannerItemApi {
   tags: string[];
   deadline: string | null;
   metadata: Record<string, unknown> | null;
+  description: string | null;
   createdAt: string;
   updatedAt: string;
   children?: PlannerItemApi[];
@@ -99,11 +100,12 @@ export class PlannerService {
           'Không thể thêm đầu việc con vào một đầu việc con khác (chỉ hỗ trợ 1 cấp).',
         );
       }
-      if (parent.kind !== 'BIG') {
-        throw new BadRequestException(
-          'Chỉ planner "lớn" mới có thể chứa đầu việc con.',
-        );
-      }
+      // [2026-10-07] BO gioi han "chi kind=BIG moi co children" - yeu cau
+      // nguoi dung: "bổ sung các đầu mục việc trong task" (checklist) cho
+      // MOI task, khong rieng gi loai "Lớn/Subtasks" da chon tu luc tao.
+      // `kind` gio CHI con quyet dinh component hien thi o Right Panel
+      // (BigTimelineItem/TimelineRow, xem PlannerShell.tsx), khong con gate
+      // kha nang them dau viec con nua.
       const last = await this.prisma.plannerItem.findFirst({
         where: { parentId: dto.parentId },
         orderBy: { orderIndex: 'desc' },
@@ -129,6 +131,7 @@ export class PlannerService {
           tags: dto.tags ?? [],
           deadline: dto.deadline ? new Date(dto.deadline) : undefined,
           metadata: dto.metadata as Prisma.InputJsonValue | undefined,
+          description: dto.description,
         },
       });
       return this.toApi(child);
@@ -158,6 +161,7 @@ export class PlannerService {
         tags: dto.tags ?? [],
         deadline: dto.deadline ? new Date(dto.deadline) : undefined,
         metadata: dto.metadata as Prisma.InputJsonValue | undefined,
+        description: dto.description,
       },
     });
     return this.toApi(item);
@@ -207,6 +211,7 @@ export class PlannerService {
               ? Prisma.JsonNull
               : (dto.metadata as Prisma.InputJsonValue)
             : undefined,
+        description: 'description' in dto ? dto.description : undefined,
       },
     });
     return this.toApi(item);
@@ -269,6 +274,7 @@ export class PlannerService {
       tags: item.tags,
       deadline: item.deadline ? item.deadline.toISOString().slice(0, 10) : null,
       metadata: (item.metadata as Record<string, unknown> | null) ?? null,
+      description: item.description,
       createdAt: item.createdAt.toISOString(),
       updatedAt: item.updatedAt.toISOString(),
       children:

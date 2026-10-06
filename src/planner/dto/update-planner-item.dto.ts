@@ -99,4 +99,11 @@ export class UpdatePlannerItemDto {
   @ValidateIf((_, value) => value !== null)
   @IsObject()
   metadata?: Record<string, unknown> | null;
+
+  // null = xoa noi dung chi tiet da dat, cung tinh than cac field null-able
+  // khac o tren (phan biet voi "khong truyen" qua `'description' in dto`).
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  description?: string | null;
 }

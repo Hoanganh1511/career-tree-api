@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Note } from '../../generated/prisma/client';
 import { CreateNoteDto } from './dto/create-note.dto';
@@ -39,7 +43,11 @@ export class NotesService {
   // xem comment NotesPanel.tsx ben FE) - bat buoc chon 1, tranh truy van
   // "toan bo note cua user" khong co pham vi (khong co man hinh nao can dieu
   // do, va se cham dan khi user tich luy nhieu note tren nhieu Series).
-  async list(userId: string, entryId?: string, seriesSlug?: string): Promise<NoteApi[]> {
+  async list(
+    userId: string,
+    entryId?: string,
+    seriesSlug?: string,
+  ): Promise<NoteApi[]> {
     if (!entryId && !seriesSlug) {
       throw new BadRequestException('Cần truyền entryId hoặc seriesSlug.');
     }
@@ -62,7 +70,9 @@ export class NotesService {
       select: { slug: true, series: { select: { slug: true } } },
     });
     if (!entry) {
-      throw new NotFoundException(`ContentSeriesEntry ${dto.entryId} not found`);
+      throw new NotFoundException(
+        `ContentSeriesEntry ${dto.entryId} not found`,
+      );
     }
     const note = await this.prisma.note.create({
       data: {
@@ -80,7 +90,11 @@ export class NotesService {
     return this.toApi(note, entry.slug);
   }
 
-  async update(userId: string, noteId: string, dto: UpdateNoteDto): Promise<NoteApi> {
+  async update(
+    userId: string,
+    noteId: string,
+    dto: UpdateNoteDto,
+  ): Promise<NoteApi> {
     await this.assertOwner(userId, noteId);
     const note = await this.prisma.note.update({
       where: { id: noteId },

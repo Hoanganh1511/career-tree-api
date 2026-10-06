@@ -104,4 +104,11 @@ export class CreatePlannerItemDto {
   @IsOptional()
   @IsObject()
   metadata?: Record<string, unknown>;
+
+  // [2026-10-07] "Nội dung chi tiết" tu do - yeu cau nguoi dung: "task cần
+  // phải có phần viết nội dung chi tiết của task nữa". Khac `title` (ngan,
+  // bat buoc) - field nay optional, dai bao nhieu cung duoc.
+  @IsOptional()
+  @IsString()
+  description?: string;
 }
