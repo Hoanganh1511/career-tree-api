@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
 import { PlannerService } from './planner.service';
-import { PlannerController } from './planner.controller';
+import {
+  PlannerController,
+  PlannerTypeColorController,
+} from './planner.controller';
 
 @Module({
   providers: [PlannerService],
-  controllers: [PlannerController],
+  controllers: [PlannerController, PlannerTypeColorController],
 })
 export class PlannerModule {}

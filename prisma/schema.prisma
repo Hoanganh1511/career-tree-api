@@ -1370,21 +1370,47 @@ enum PlannerItemKind {
   BIG
 }
 
+// [2026-10-06] "Good Life - Life Management System" - yeu cau nguoi dung gui
+// nguyen 1 ban dac ta day du (4 loai Life Item thay vi 1 Task Type chung):
+// DO (Action) / ATTEND (Event) / REPEAT (Habit) / REFLECT (Reflection).
+// MAC DINH ACTION cho item cu (truoc field nay) - khop dung ban chat cua
+// chung (viec cu the can lam), khong mat/sai lech du lieu da co.
+enum LifeItemType {
+  ACTION
+  EVENT
+  HABIT
+  REFLECTION
+}
+
+// Priority la METADATA rieng, KHONG phai Type/mau Type (spec section 9: "Một
+// màu = một semantic layer... Priority không dùng màu Type. Chỉ xuất hiện ở
+// dot/badge/small indicator"). Nullable - khong bat buoc moi item deu co.
+enum LifeItemPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
 model PlannerItem {
   id              String          @id @default(uuid())
   userId          String
   date            DateTime        @db.Date
   title           String
   kind            PlannerItemKind @default(SIMPLE)
+  // [2026-10-06] Loai Life Item (Action/Event/Habit/Reflection) - quyet dinh
+  // CACH nguoi dung tuong tac voi item (co checkbox/complete hay khong, co
+  // field rieng gi - xem `metadata`), KHAC voi `kind` (SIMPLE/BIG - truc
+  // RIENG, van giu de Action "lớn" co the chua dau viec con nhu truoc).
+  itemType        LifeItemType    @default(ACTION)
+  // [2026-10-06] Mau the TRUOC DAY nguoi dung tu chon tu do (hex) - KHONG CON
+  // dung de quyet dinh mau hien thi nua (mau gio la SEMANTIC THEO itemType,
+  // xem life-item-types.ts ben FE + model PlannerTypeColor duoi) - GIU LAI
+  // CHI de khong mat du lieu cu/tranh migration xoa cot, code MOI khong doc
+  // field nay nua.
+  color           String?
   // Gio len lich cu the trong ngay (phut tinh tu 0h, vd 9:30 = 570) - nullable,
   // khong bat buoc moi item deu co gio.
   scheduledMinute Int?
-  // Mau the (hex, vd "#ef4444") - nguoi dung tu chon luc tao, dung de ve
-  // border-top mau tren the checklist (ca trong o lich LAN panel chi tiet
-  // ngay). null = khong mau (border xam mac dinh) - xem TEXT_COLORS trong
-  // PlannerShell.tsx (frontend), tai dung DUNG 7 mau da co o SelectionFloatingMenu.tsx
-  // (editor) cho nhat quan mau sac toan app, khong bia bang mau rieng.
-  color           String?
   // [2026-10-05] Thoi luong (phut) - yeu cau nguoi dung (redesign Planner
   // "Right Panel"): timeline "09:30 — 11:00", progress "gio da lam/tong gio",
   // chia cot khi 2 viec trung gio deu can biet gio KET THUC (truoc day chi co
@@ -1400,6 +1426,23 @@ model PlannerItem {
   // dau 2 viec, UI chi hien viec dau tien, khong loi).
   isFocus         Boolean         @default(false)
   done            Boolean         @default(false)
+  // [2026-10-06] Metadata MOI theo spec "Good Life" - tat ca deu OPTIONAL
+  // (khong bat buoc dien, "progressive disclosure"). priority/area/project/
+  // tags/deadline dung CHUNG cho moi Type (spec section 8-16: day la
+  // "metadata", khong phai Type). `metadata` (Json) chua cac field RIENG
+  // theo tung Type (Event: location/participants/meetingUrl; Habit:
+  // frequencyPerWeek/preferredDays/preferredTime/target; Reflection:
+  // prompts[]) - dung 1 cot Json DUY NHAT thay vi 3 bang rieng de khong phai
+  // migrate schema moi lan them 1 field nho cho 1 Type, doc du lieu qua
+  // kieu TypeScript rieng o service (xem notes.service.ts lam vi du mau cho
+  // pattern Json tren model khac trong CHINH schema nay).
+  priority        LifeItemPriority?
+  status          String?
+  area            String?
+  project         String?
+  tags            String[]        @default([])
+  deadline        DateTime?       @db.Date
+  metadata        Json?
   // Thu tu hien thi THEO Y nguoi dung sap xep - rieng trong pham vi 1 ngay
   // (top-level) hoac 1 cha (children).
   orderIndex      Int             @default(0)
@@ -1411,6 +1454,24 @@ model PlannerItem {
 
   @@index([userId, date])
   @@index([parentId])
+}
+
+// [2026-10-06] "User customization" (spec section 21): nguoi dung doi CA 1
+// "color family" (accent/strong/soft/background/border/text) cho 1 Type
+// CHU KHONG CHO doi tung mau rieng le (dung tinh than Card Color System da
+// lam cho CardGrid - card-palettes.ts) - 1 dong/user/type, gia tri la
+// `paletteId` (tham chieu toi LIFE_ITEM_PALETTES o FE, xem life-item-types.ts).
+// Vang mat 1 type = dung mau mac dinh cua chinh Type do (Action=Blue,
+// Event=Lavender, Habit=Sage, Reflection=Sand - "để user mới mở app không
+// phải configuration gì cả").
+model PlannerTypeColor {
+  id        String       @id @default(uuid())
+  userId    String
+  type      LifeItemType
+  paletteId String
+  updatedAt DateTime     @updatedAt
+
+  @@unique([userId, type])
 }
 
 model TrackingEnergyCheckin {

@@ -4,9 +4,20 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PlannerItem } from '../../generated/prisma/client';
+import {
+  PlannerItem,
+  Prisma,
+  LifeItemType,
+} from '../../generated/prisma/client';
 import { CreatePlannerItemDto } from './dto/create-planner-item.dto';
 import { UpdatePlannerItemDto } from './dto/update-planner-item.dto';
+
+function assertLifeItemType(type: string): LifeItemType {
+  if (!Object.values(LifeItemType).includes(type as LifeItemType)) {
+    throw new BadRequestException(`Loại không hợp lệ: ${type}`);
+  }
+  return type as LifeItemType;
+}
 
 type PlannerItemWithChildren = PlannerItem & { children: PlannerItem[] };
 
@@ -21,6 +32,7 @@ export interface PlannerItemApi {
   date: string;
   title: string;
   kind: string;
+  itemType: string;
   scheduledMinute: number | null;
   color: string | null;
   durationMinutes: number | null;
@@ -28,6 +40,13 @@ export interface PlannerItemApi {
   done: boolean;
   orderIndex: number;
   parentId: string | null;
+  priority: string | null;
+  status: string | null;
+  area: string | null;
+  project: string | null;
+  tags: string[];
+  deadline: string | null;
+  metadata: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
   children?: PlannerItemApi[];
@@ -70,7 +89,9 @@ export class PlannerService {
     // Chen 1 dau viec CON - lay date/kind THANG tu planner cha (bo qua
     // dto.date/dto.kind neu nguoi goi co truyen) de dam bao con LUON cung
     // ngay voi cha va LUON la SIMPLE (khong long BIG trong BIG) - xem comment
-    // schema.prisma ve gioi han 1 cap nay.
+    // schema.prisma ve gioi han 1 cap nay. Item CON ke thua `itemType` cua
+    // dto nhu binh thuong (khong ep theo cha - 1 Action "lớn" van co the
+    // chua cac dau viec con la Action binh thuong).
     if (dto.parentId) {
       const parent = await this.assertOwner(userId, dto.parentId);
       if (parent.parentId !== null) {
@@ -94,12 +115,20 @@ export class PlannerService {
           date: parent.date,
           title: dto.title,
           kind: 'SIMPLE',
+          itemType: dto.itemType ?? 'ACTION',
           scheduledMinute: dto.scheduledMinute,
           color: dto.color,
           durationMinutes: dto.durationMinutes,
           isFocus: dto.isFocus ?? false,
           parentId: dto.parentId,
           orderIndex: (last?.orderIndex ?? -1) + 1,
+          priority: dto.priority,
+          status: dto.status,
+          area: dto.area,
+          project: dto.project,
+          tags: dto.tags ?? [],
+          deadline: dto.deadline ? new Date(dto.deadline) : undefined,
+          metadata: dto.metadata as Prisma.InputJsonValue | undefined,
         },
       });
       return this.toApi(child);
@@ -116,11 +145,19 @@ export class PlannerService {
         date: new Date(dto.date),
         title: dto.title,
         kind: dto.kind ?? 'SIMPLE',
+        itemType: dto.itemType ?? 'ACTION',
         scheduledMinute: dto.scheduledMinute,
         color: dto.color,
         durationMinutes: dto.durationMinutes,
         isFocus: dto.isFocus ?? false,
         orderIndex: (last?.orderIndex ?? -1) + 1,
+        priority: dto.priority,
+        status: dto.status,
+        area: dto.area,
+        project: dto.project,
+        tags: dto.tags ?? [],
+        deadline: dto.deadline ? new Date(dto.deadline) : undefined,
+        metadata: dto.metadata as Prisma.InputJsonValue | undefined,
       },
     });
     return this.toApi(item);
@@ -133,10 +170,13 @@ export class PlannerService {
       data: {
         title: dto.title,
         done: dto.done,
+        itemType: dto.itemType,
         // 'scheduledMinute' in dto - phan biet "khong truyen" (giu nguyen,
         // Prisma bo qua field undefined) voi "truyen null" (XOA gio da dat,
         // Prisma ghi NULL that su) - khac voi cac field khac o day deu CHI
-        // nhan 1 kieu gia tri hop le (khong co nhu cau xoa ve rong).
+        // nhan 1 kieu gia tri hop le (khong co nhu cau xoa ve rong). Ap dung
+        // CUNG 1 pattern cho toan bo metadata moi (priority/status/area/
+        // project/deadline/metadata).
         scheduledMinute:
           'scheduledMinute' in dto ? dto.scheduledMinute : undefined,
         // 'color' in dto - cung tinh than voi scheduledMinute o tren (phan
@@ -146,6 +186,27 @@ export class PlannerService {
           'durationMinutes' in dto ? dto.durationMinutes : undefined,
         isFocus: dto.isFocus,
         orderIndex: dto.orderIndex,
+        priority: 'priority' in dto ? dto.priority : undefined,
+        status: 'status' in dto ? dto.status : undefined,
+        area: 'area' in dto ? dto.area : undefined,
+        project: 'project' in dto ? dto.project : undefined,
+        tags: dto.tags,
+        deadline:
+          'deadline' in dto
+            ? dto.deadline === null || dto.deadline === undefined
+              ? dto.deadline
+              : new Date(dto.deadline)
+            : undefined,
+        // Prisma.JsonNull (khong phai `null` tho) - API rieng cua Prisma de
+        // ghi gia tri SQL NULL that su vao 1 cot Json (`null` tho se bi hieu
+        // la "khong truyen gi" doi voi field Json, khac het cac field thuong
+        // khac o tren).
+        metadata:
+          'metadata' in dto
+            ? dto.metadata === null
+              ? Prisma.JsonNull
+              : (dto.metadata as Prisma.InputJsonValue)
+            : undefined,
       },
     });
     return this.toApi(item);
@@ -157,12 +218,43 @@ export class PlannerService {
     await this.prisma.plannerItem.delete({ where: { id: itemId } });
   }
 
+  // [2026-10-06] "User customization" (spec section 21) - doi CA 1 color
+  // family cho 1 Type, khong phai tung mau rieng le. Type nao KHONG co dong
+  // trong bang nay = dung mau mac dinh cua chinh no (FE tu fallback, xem
+  // life-item-types.ts) - khong can tao san 4 dong rong luc user moi dang ky.
+  async getTypeColors(userId: string) {
+    const rows = await this.prisma.plannerTypeColor.findMany({
+      where: { userId },
+    });
+    return rows.map((r) => ({ type: r.type, paletteId: r.paletteId }));
+  }
+
+  async setTypeColor(userId: string, type: string, paletteId: string) {
+    const lifeItemType = assertLifeItemType(type);
+    await this.prisma.plannerTypeColor.upsert({
+      where: { userId_type: { userId, type: lifeItemType } },
+      create: { userId, type: lifeItemType, paletteId },
+      update: { paletteId },
+    });
+    return { type: lifeItemType, paletteId };
+  }
+
+  async resetTypeColor(userId: string, type: string) {
+    const lifeItemType = assertLifeItemType(type);
+    await this.prisma.plannerTypeColor
+      .delete({ where: { userId_type: { userId, type: lifeItemType } } })
+      .catch(() => {
+        // Khong co dong nao de xoa (dang dung mac dinh roi) - khong phai loi.
+      });
+  }
+
   private toApi(item: PlannerItem | PlannerItemWithChildren): PlannerItemApi {
     return {
       id: item.id,
       date: item.date.toISOString().slice(0, 10),
       title: item.title,
       kind: item.kind,
+      itemType: item.itemType,
       scheduledMinute: item.scheduledMinute,
       color: item.color,
       durationMinutes: item.durationMinutes,
@@ -170,6 +262,13 @@ export class PlannerService {
       done: item.done,
       orderIndex: item.orderIndex,
       parentId: item.parentId,
+      priority: item.priority,
+      status: item.status,
+      area: item.area,
+      project: item.project,
+      tags: item.tags,
+      deadline: item.deadline ? item.deadline.toISOString().slice(0, 10) : null,
+      metadata: (item.metadata as Record<string, unknown> | null) ?? null,
       createdAt: item.createdAt.toISOString(),
       updatedAt: item.updatedAt.toISOString(),
       children:

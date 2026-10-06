@@ -1,9 +1,11 @@
 import {
+  IsArray,
   IsBoolean,
   IsDateString,
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   Matches,
@@ -11,6 +13,10 @@ import {
 } from 'class-validator';
 
 const KINDS = ['SIMPLE', 'BIG'] as const;
+// Giu NGUYEN VAN gia tri khop 1-1 voi LIFE_ITEM_TYPES phia FE (xem
+// life-item-types.ts) - xem comment day du o schema.prisma (enum LifeItemType).
+const ITEM_TYPES = ['ACTION', 'EVENT', 'HABIT', 'REFLECTION'] as const;
+const PRIORITIES = ['HIGH', 'MEDIUM', 'LOW'] as const;
 
 export class CreatePlannerItemDto {
   @IsDateString()
@@ -27,15 +33,20 @@ export class CreatePlannerItemDto {
   @IsIn(KINDS)
   kind?: (typeof KINDS)[number];
 
+  // [2026-10-06] "Good Life - Life Management System" - mac dinh ACTION
+  // (khong truyen gi van la 1 viec can lam, tuong thich voi hanh vi CU).
+  @IsOptional()
+  @IsIn(ITEM_TYPES)
+  itemType?: (typeof ITEM_TYPES)[number];
+
   @IsOptional()
   @IsInt()
   @Min(0)
   scheduledMinute?: number;
 
-  // Mau the (hex "#rrggbb") - nguoi dung tu chon luc tao, xem comment
-  // schema.prisma. Khong gioi han IsIn 1 bang mau co dinh o backend (frontend
-  // tu quan ly bang mau hien thi) - chi can dung dinh dang hex de tranh luu
-  // rac (vd nguoi dung sua request thu cong).
+  // Mau the (hex "#rrggbb") - TRUOC DAY nguoi dung tu chon luc tao, GIU LAI
+  // field de tuong thich API cu nhung KHONG CON duoc FE doc de hien thi mau
+  // (mau gio la semantic theo itemType - xem comment schema.prisma).
   @IsOptional()
   @Matches(/^#[0-9a-fA-F]{6}$/, {
     message: 'Mã màu phải ở định dạng hex (vd "#ef4444").',
@@ -59,4 +70,38 @@ export class CreatePlannerItemDto {
   @IsOptional()
   @IsString()
   parentId?: string;
+
+  // --- Metadata moi (spec "Good Life", section 8-16) - dung CHUNG cho moi
+  // Type, hoan toan optional ("progressive disclosure").
+  @IsOptional()
+  @IsIn(PRIORITIES)
+  priority?: (typeof PRIORITIES)[number];
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  area?: string;
+
+  @IsOptional()
+  @IsString()
+  project?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
+
+  @IsOptional()
+  @IsDateString()
+  deadline?: string;
+
+  // Field RIENG theo Type (Event: location/participants/meetingUrl; Habit:
+  // frequencyPerWeek/preferredDays/preferredTime/target; Reflection:
+  // prompts[]) - xem comment day du o schema.prisma (cot `metadata` Json).
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
 }

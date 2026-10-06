@@ -1,13 +1,20 @@
 import {
+  IsArray,
   IsBoolean,
+  IsDateString,
+  IsIn,
   IsInt,
   IsNotEmpty,
+  IsObject,
   IsOptional,
   IsString,
   Matches,
   Min,
   ValidateIf,
 } from 'class-validator';
+
+const ITEM_TYPES = ['ACTION', 'EVENT', 'HABIT', 'REFLECTION'] as const;
+const PRIORITIES = ['HIGH', 'MEDIUM', 'LOW'] as const;
 
 export class UpdatePlannerItemDto {
   @IsOptional()
@@ -18,6 +25,10 @@ export class UpdatePlannerItemDto {
   @IsOptional()
   @IsBoolean()
   done?: boolean;
+
+  @IsOptional()
+  @IsIn(ITEM_TYPES)
+  itemType?: (typeof ITEM_TYPES)[number];
 
   // Gio NULL de bo gio da dat - phan biet voi "khong truyen gi" (undefined =
   // giu nguyen) qua kiem tra `'scheduledMinute' in dto` o PlannerService.
@@ -51,4 +62,41 @@ export class UpdatePlannerItemDto {
   @IsInt()
   @Min(0)
   orderIndex?: number;
+
+  // --- Metadata moi - deu nullable (xoa gia tri da dat) cung tinh than
+  // scheduledMinute/color/durationMinutes o tren, phan biet qua `'field' in dto`.
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsIn(PRIORITIES)
+  priority?: (typeof PRIORITIES)[number] | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  status?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  area?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  project?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsDateString()
+  deadline?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsObject()
+  metadata?: Record<string, unknown> | null;
 }
