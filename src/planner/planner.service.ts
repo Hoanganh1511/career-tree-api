@@ -36,6 +36,7 @@ export interface PlannerItemApi {
   itemType: string;
   scheduledMinute: number | null;
   color: string | null;
+  colorPaletteId: string | null;
   durationMinutes: number | null;
   isFocus: boolean;
   done: boolean;
@@ -152,6 +153,7 @@ export class PlannerService {
         itemType: dto.itemType ?? 'ACTION',
         scheduledMinute: dto.scheduledMinute,
         color: dto.color,
+        colorPaletteId: dto.colorPaletteId,
         durationMinutes: dto.durationMinutes,
         isFocus: dto.isFocus ?? false,
         orderIndex: (last?.orderIndex ?? -1) + 1,
@@ -187,6 +189,8 @@ export class PlannerService {
         // 'color' in dto - cung tinh than voi scheduledMinute o tren (phan
         // biet "khong truyen" = giu nguyen voi "truyen null" = xoa mau da dat).
         color: 'color' in dto ? dto.color : undefined,
+        colorPaletteId:
+          'colorPaletteId' in dto ? dto.colorPaletteId : undefined,
         durationMinutes:
           'durationMinutes' in dto ? dto.durationMinutes : undefined,
         isFocus: dto.isFocus,
@@ -284,6 +288,7 @@ export class PlannerService {
       itemType: item.itemType,
       scheduledMinute: item.scheduledMinute,
       color: item.color,
+      colorPaletteId: item.colorPaletteId,
       durationMinutes: item.durationMinutes,
       isFocus: item.isFocus,
       done: item.done,

@@ -1408,6 +1408,14 @@ model PlannerItem {
   // CHI de khong mat du lieu cu/tranh migration xoa cot, code MOI khong doc
   // field nay nua.
   color           String?
+  // [2026-10-07] "chọn màu này sẽ là màu của card, không liên quan tới loại
+  // của card" (yeu cau nguoi dung) - mau RIENG cho 1 item CU THE, DOC LAP
+  // hoan toan voi itemType (khac PlannerTypeColor o duoi - do la mau THEO
+  // TYPE, ap dung cho MOI item CUNG type; con day la mau cho DUNG 1 the).
+  // Gia tri = 1 trong cac id cua LIFE_ITEM_PALETTES (FE, life-item-types.ts -
+  // vd "macos-blue", "cyan-sky"...) - null = CHUA tu chon rieng, FE fallback
+  // ve mau THEO TYPE nhu truoc (resolveLifeItemPalette).
+  colorPaletteId  String?
   // Gio len lich cu the trong ngay (phut tinh tu 0h, vd 9:30 = 570) - nullable,
   // khong bat buoc moi item deu co gio.
   scheduledMinute Int?

@@ -53,6 +53,15 @@ export class CreatePlannerItemDto {
   })
   color?: string;
 
+  // [2026-10-07] Mau RIENG cho item nay, DOC LAP voi itemType - yeu cau
+  // nguoi dung: "chọn màu này sẽ là màu của card, không liên quan tới loại
+  // của card". Gia tri = 1 id trong LIFE_ITEM_PALETTES (FE, life-item-types.ts)
+  // - khong validate list cu the o day (list song o FE, co the mo rong),
+  // chi can la string.
+  @IsOptional()
+  @IsString()
+  colorPaletteId?: string;
+
   // Thoi luong (phut) - xem comment schema.prisma. Toi thieu 1 phut (0 vo
   // nghia cho 1 khoang thoi gian).
   @IsOptional()

@@ -46,6 +46,14 @@ export class UpdatePlannerItemDto {
   })
   color?: string | null;
 
+  // [2026-10-07] null = bo mau RIENG da chon (quay lai mau theo itemType),
+  // cung tinh than cac field nullable khac o day - yeu cau nguoi dung: "chọn
+  // màu này sẽ là màu của card, không liên quan tới loại của card".
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  colorPaletteId?: string | null;
+
   // null = bo thoi luong da dat, cung tinh than voi scheduledMinute/color o
   // tren - phan biet voi "khong truyen" qua `'durationMinutes' in dto`.
   @IsOptional()
