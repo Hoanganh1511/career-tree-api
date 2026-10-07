@@ -1481,6 +1481,43 @@ model PlannerTypeColor {
   @@unique([userId, type])
 }
 
+// [2026-10-07] Settings modal cua Planner (toolbar icon moi, xem
+// PlannerSettingsModal.tsx FE) - 1 DONG/user (giong TrackingSettings o
+// tren), KHONG phai nhieu dong nhu PlannerTypeColor (moi field la 1 "cong
+// tac" DOC LAP, khong co truc "loai" nao de group theo). Tat ca field co
+// @default - 1 user moi chua tung mo Settings van co the GET ngay (service
+// tu tao dong voi default neu chua ton tai, xem getSettings()).
+model PlannerSettings {
+  userId String @id
+
+  // --- View ---
+  weekStartsOn      String  @default("MONDAY") // MONDAY | SUNDAY
+  timeFormat        String  @default("24H") // 24H | 12H
+  showWeekends      Boolean @default(true)
+  showAllDaySection Boolean @default(true)
+  density           String  @default("COMFORTABLE") // COMPACT | COMFORTABLE
+
+  // --- Calendar ---
+  // Phut tinh tu 0h (cung don vi voi PlannerItem.scheduledMinute).
+  workingHoursStart Int @default(480) // 08:00
+  workingHoursEnd   Int @default(1320) // 22:00
+  firstVisibleHour  Int @default(0)
+  lastVisibleHour   Int @default(24)
+  timeSlotMinutes   Int @default(30) // 15 | 30 | 60
+
+  // --- Task appearance ---
+  showTaskType Boolean @default(true)
+  showDuration Boolean @default(true)
+  showArea     Boolean @default(false)
+  showProject  Boolean @default(false)
+  showPriority Boolean @default(true)
+
+  completedTaskDisplay String @default("KEEP_VISIBLE") // KEEP_VISIBLE | COLLAPSE | HIDE
+  completedTaskStyle   String @default("CHECK_ICON") // CHECK_ICON | CHECK_COLOR | DONE_BADGE | PATTERN
+
+  updatedAt DateTime @updatedAt
+}
+
 model TrackingEnergyCheckin {
   id        String   @id @default(uuid())
   userId    String

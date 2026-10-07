@@ -11,6 +11,7 @@ import {
 } from '../../generated/prisma/client';
 import { CreatePlannerItemDto } from './dto/create-planner-item.dto';
 import { UpdatePlannerItemDto } from './dto/update-planner-item.dto';
+import { UpdatePlannerSettingsDto } from './dto/update-planner-settings.dto';
 
 function assertLifeItemType(type: string): LifeItemType {
   if (!Object.values(LifeItemType).includes(type as LifeItemType)) {
@@ -251,6 +252,27 @@ export class PlannerService {
       .catch(() => {
         // Khong co dong nao de xoa (dang dung mac dinh roi) - khong phai loi.
       });
+  }
+
+  // [2026-10-07] Settings modal cua Planner (toolbar icon moi, xem
+  // PlannerSettingsModal.tsx FE) - 1 DONG/user (xem model PlannerSettings,
+  // cung tinh than TrackingSettings). getSettings() TU TAO 1 dong voi gia
+  // tri @default (schema.prisma) neu user CHUA TUNG mo Settings - FE luon
+  // nhan duoc 1 object DAY DU, khong can tu merge voi default o FE.
+  async getSettings(userId: string) {
+    const row = await this.prisma.plannerSettings.findUnique({
+      where: { userId },
+    });
+    if (row) return row;
+    return this.prisma.plannerSettings.create({ data: { userId } });
+  }
+
+  async updateSettings(userId: string, dto: UpdatePlannerSettingsDto) {
+    return this.prisma.plannerSettings.upsert({
+      where: { userId },
+      create: { userId, ...dto },
+      update: { ...dto },
+    });
   }
 
   private toApi(item: PlannerItem | PlannerItemWithChildren): PlannerItemApi {

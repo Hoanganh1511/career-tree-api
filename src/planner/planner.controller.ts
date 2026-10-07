@@ -15,6 +15,7 @@ import { CurrentUserId } from '../auth/current-user.decorator';
 import { CreatePlannerItemDto } from './dto/create-planner-item.dto';
 import { UpdatePlannerItemDto } from './dto/update-planner-item.dto';
 import { SetTypeColorDto } from './dto/set-type-color.dto';
+import { UpdatePlannerSettingsDto } from './dto/update-planner-settings.dto';
 
 // Planner - trang /planner RIENG moi, HOAN TOAN DOC LAP voi /tracking (dang
 // khoa, xem tracking/layout.tsx o FE) - xem comment day du trong
@@ -79,5 +80,28 @@ export class PlannerTypeColorController {
   @Delete(':type')
   reset(@CurrentUserId() userId: string, @Param('type') type: string) {
     return this.plannerService.resetTypeColor(userId, type);
+  }
+}
+
+// [2026-10-07] Controller RIENG (giong PlannerTypeColorController o tren) -
+// Settings modal cua Planner (xem PlannerSettingsModal.tsx FE). 1 object DUY
+// NHAT/user (khong co :param nhu type-colors vi khong co truc "loai" nao de
+// group) nen chi can GET/PATCH, khong can DELETE/reset rieng (nguoi dung tu
+// doi lai tung field qua PATCH neu muon ve mac dinh).
+@Controller('planner/settings')
+export class PlannerSettingsController {
+  constructor(private plannerService: PlannerService) {}
+
+  @Get()
+  get(@CurrentUserId() userId: string) {
+    return this.plannerService.getSettings(userId);
+  }
+
+  @Patch()
+  update(
+    @CurrentUserId() userId: string,
+    @Body() dto: UpdatePlannerSettingsDto,
+  ) {
+    return this.plannerService.updateSettings(userId, dto);
   }
 }
