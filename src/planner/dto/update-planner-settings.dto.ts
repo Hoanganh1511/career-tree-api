@@ -66,9 +66,15 @@ export class UpdatePlannerSettingsDto {
   @IsIn(TIME_SLOT_MINUTES)
   timeSlotMinutes?: (typeof TIME_SLOT_MINUTES)[number];
 
+  // [2026-10-09] showTaskType -> showCategory; bo showArea/showProject (2 cot
+  // area/project da bi xoa khoi PlannerItem); them showStatus/showLocation.
   @IsOptional()
   @IsBoolean()
-  showTaskType?: boolean;
+  showCategory?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  showStatus?: boolean;
 
   @IsOptional()
   @IsBoolean()
@@ -76,11 +82,7 @@ export class UpdatePlannerSettingsDto {
 
   @IsOptional()
   @IsBoolean()
-  showArea?: boolean;
-
-  @IsOptional()
-  @IsBoolean()
-  showProject?: boolean;
+  showLocation?: boolean;
 
   @IsOptional()
   @IsBoolean()

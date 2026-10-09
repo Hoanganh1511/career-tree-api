@@ -1,123 +1,104 @@
 import {
   IsArray,
   IsBoolean,
-  IsDateString,
-  IsIn,
-  IsInt,
-  IsNotEmpty,
-  IsObject,
+  IsEnum,
+  IsISO8601,
   IsOptional,
   IsString,
-  Matches,
-  Min,
+  IsUrl,
+  MaxLength,
+  MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  PlannerCategory,
+  PlannerItemType,
+  PlannerPriority,
+  PlannerScheduleKind,
+  PlannerStatus,
+} from '../../../generated/prisma/client';
 
-const KINDS = ['SIMPLE', 'BIG'] as const;
-// Giu NGUYEN VAN gia tri khop 1-1 voi LIFE_ITEM_TYPES phia FE (xem
-// life-item-types.ts) - xem comment day du o schema.prisma (enum LifeItemType).
-const ITEM_TYPES = ['ACTION', 'EVENT', 'HABIT', 'REFLECTION'] as const;
-const PRIORITIES = ['HIGH', 'MEDIUM', 'LOW'] as const;
+// [2026-10-09] Refactor Planner: Task/Event/Reminder. Rang buoc lich
+// (scheduleKind <-> startAt/endAt/dueAt) KHONG kiem o day bang decorator
+// (class-validator khong dien dat duoc "neu A thi B bat buoc" gon gang) ma
+// o PlannerService.normalizeSchedule() - 1 cho DUY NHAT, dung chung cho ca
+// create lan update, tranh lech luat giua 2 duong.
 
-export class CreatePlannerItemDto {
-  @IsDateString()
-  date!: string;
-
+export class ChecklistItemDto {
   @IsString()
-  @IsNotEmpty()
+  @MaxLength(200)
   title!: string;
 
-  // Chi top-level item (khong co parentId) moi can chon kind - item con LUON
-  // la SIMPLE o PlannerService (xem comment do), bo qua field nay neu co
-  // truyen parentId.
-  @IsOptional()
-  @IsIn(KINDS)
-  kind?: (typeof KINDS)[number];
-
-  // [2026-10-06] "Good Life - Life Management System" - mac dinh ACTION
-  // (khong truyen gi van la 1 viec can lam, tuong thich voi hanh vi CU).
-  @IsOptional()
-  @IsIn(ITEM_TYPES)
-  itemType?: (typeof ITEM_TYPES)[number];
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  scheduledMinute?: number;
-
-  // Mau the (hex "#rrggbb") - TRUOC DAY nguoi dung tu chon luc tao, GIU LAI
-  // field de tuong thich API cu nhung KHONG CON duoc FE doc de hien thi mau
-  // (mau gio la semantic theo itemType - xem comment schema.prisma).
-  @IsOptional()
-  @Matches(/^#[0-9a-fA-F]{6}$/, {
-    message: 'Mã màu phải ở định dạng hex (vd "#ef4444").',
-  })
-  color?: string;
-
-  // [2026-10-07] Mau RIENG cho item nay, DOC LAP voi itemType - yeu cau
-  // nguoi dung: "chọn màu này sẽ là màu của card, không liên quan tới loại
-  // của card". Gia tri = 1 id trong LIFE_ITEM_PALETTES (FE, life-item-types.ts)
-  // - khong validate list cu the o day (list song o FE, co the mo rong),
-  // chi can la string.
-  @IsOptional()
-  @IsString()
-  colorPaletteId?: string;
-
-  // Thoi luong (phut) - xem comment schema.prisma. Toi thieu 1 phut (0 vo
-  // nghia cho 1 khoang thoi gian).
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  durationMinutes?: number;
-
-  // Danh dau "việc trọng tâm hôm nay" - xem comment schema.prisma.
   @IsOptional()
   @IsBoolean()
-  isFocus?: boolean;
-
-  // Chen 1 dau viec CON vao duoi 1 planner "lớn" da co san (phai la top-level
-  // item, PlannerService tu kiem tra chu so huu + khong cho long qua 1 cap).
-  @IsOptional()
-  @IsString()
-  parentId?: string;
-
-  // --- Metadata moi (spec "Good Life", section 8-16) - dung CHUNG cho moi
-  // Type, hoan toan optional ("progressive disclosure").
-  @IsOptional()
-  @IsIn(PRIORITIES)
-  priority?: (typeof PRIORITIES)[number];
+  done?: boolean;
 
   @IsOptional()
   @IsString()
-  status?: string;
+  id?: string;
+}
+
+export class CreatePlannerItemDto {
+  @IsEnum(PlannerItemType)
+  type!: PlannerItemType;
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(300)
+  title!: string;
 
   @IsOptional()
   @IsString()
-  area?: string;
+  @MaxLength(10000)
+  description?: string;
+
+  @IsOptional()
+  @IsEnum(PlannerCategory)
+  category?: PlannerCategory;
+
+  @IsOptional()
+  @IsEnum(PlannerStatus)
+  status?: PlannerStatus;
+
+  @IsOptional()
+  @IsEnum(PlannerPriority)
+  priority?: PlannerPriority;
+
+  @IsOptional()
+  @IsEnum(PlannerScheduleKind)
+  scheduleKind?: PlannerScheduleKind;
+
+  // ISO 8601 day du (co gio) - khac han cot `date`/`deadline` @db.Date cu.
+  @IsOptional()
+  @IsISO8601()
+  startAt?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  endAt?: string;
+
+  @IsOptional()
+  @IsISO8601()
+  dueAt?: string;
 
   @IsOptional()
   @IsString()
-  project?: string;
+  @MaxLength(300)
+  location?: string;
+
+  @IsOptional()
+  @IsUrl({ require_protocol: false })
+  @MaxLength(2000)
+  meetingUrl?: string;
 
   @IsOptional()
   @IsArray()
-  @IsString({ each: true })
-  tags?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => ChecklistItemDto)
+  checklist?: ChecklistItemDto[];
 
+  // Luu nguyen van (chua co logic sinh instance) - xem comment schema.prisma.
   @IsOptional()
-  @IsDateString()
-  deadline?: string;
-
-  // Field RIENG theo Type (Event: location/participants/meetingUrl; Habit:
-  // frequencyPerWeek/preferredDays/preferredTime/target; Reflection:
-  // prompts[]) - xem comment day du o schema.prisma (cot `metadata` Json).
-  @IsOptional()
-  @IsObject()
-  metadata?: Record<string, unknown>;
-
-  // [2026-10-07] "Nội dung chi tiết" tu do - yeu cau nguoi dung: "task cần
-  // phải có phần viết nội dung chi tiết của task nữa". Khac `title` (ngan,
-  // bat buoc) - field nay optional, dai bao nhieu cung duoc.
-  @IsOptional()
-  @IsString()
-  description?: string;
+  recurrence?: Record<string, unknown>;
 }

@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { PlannerService } from './planner.service';
 import {
   PlannerController,
-  PlannerTypeColorController,
+  PlannerCategoryColorController,
   PlannerSettingsController,
 } from './planner.controller';
 
@@ -10,7 +10,7 @@ import {
   providers: [PlannerService],
   controllers: [
     PlannerController,
-    PlannerTypeColorController,
+    PlannerCategoryColorController,
     PlannerSettingsController,
   ],
 })

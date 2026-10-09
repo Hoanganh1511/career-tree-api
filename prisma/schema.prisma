@@ -57,24 +57,24 @@ model User {
   blockedBy         UserBlock[]  @relation("Blocked")
   profile           UserProfile?
 
-  communitiesOwened            Community[]
-  communityMemberships         CommunityMember[]
-  communityPosts               CommunityPost[]
-  comments                     Comment[]
-  reactions                    Reaction[]
-  requestedChannels            Channel[]                    @relation("ChannelRequestedBy")
-  notificationsReceived        Notification[]               @relation("NotificationRecipient")
-  notificationsActedOn         Notification[]               @relation("NotificationActor")
-  conversationParticipations   ConversationParticipant[]
-  messagesSent                 Message[]
-  pollVotes                    PollVote[]
-  messageReactions             MessageReaction[]
-  diaryTopics                  DiaryTopic[]
-  postCollections              PostCollection[]
-  postComments                 PostComment[]
-  postCommentLikes             PostCommentLike[]
-  postLikes                    PostLike[]
-  savedPosts                   SavedPost[]
+  communitiesOwened          Community[]
+  communityMemberships       CommunityMember[]
+  communityPosts             CommunityPost[]
+  comments                   Comment[]
+  reactions                  Reaction[]
+  requestedChannels          Channel[]                 @relation("ChannelRequestedBy")
+  notificationsReceived      Notification[]            @relation("NotificationRecipient")
+  notificationsActedOn       Notification[]            @relation("NotificationActor")
+  conversationParticipations ConversationParticipant[]
+  messagesSent               Message[]
+  pollVotes                  PollVote[]
+  messageReactions           MessageReaction[]
+  diaryTopics                DiaryTopic[]
+  postCollections            PostCollection[]
+  postComments               PostComment[]
+  postCommentLikes           PostCommentLike[]
+  postLikes                  PostLike[]
+  savedPosts                 SavedPost[]
 }
 
 // Feed Trang chu - truoc day 100% mock o frontend (enggo/src/content/
@@ -1358,143 +1358,134 @@ model TrackingTask {
   @@index([userId, date])
 }
 
-// Planner - trang /planner RIENG, HOAN TOAN MOI (yeu cau nguoi dung: "Tính
-// năng này mới hoàn toàn, các cái gì xung đột về planner cũ xóa đi") - KHONG
-// tai dung TrackingTask (model tren, thuoc ve DailyCommandCenterShell dang
-// khoa o /tracking) de tranh dinh vao logic/rang buoc cua tinh nang cu. Moi
-// PlannerItem la 1 dong checklist trong 1 ngay, co the la "planner đơn"
-// (SIMPLE) hoac "planner lớn" (BIG, chua duoc cac PlannerItem con qua
-// `children` - 1 cap, khong long BIG trong BIG o UI).
-enum PlannerItemKind {
-  SIMPLE
-  BIG
-}
-
-// [2026-10-06] "Good Life - Life Management System" - yeu cau nguoi dung gui
-// nguyen 1 ban dac ta day du (4 loai Life Item thay vi 1 Task Type chung):
-// DO (Action) / ATTEND (Event) / REPEAT (Habit) / REFLECT (Reflection).
-// MAC DINH ACTION cho item cu (truoc field nay) - khop dung ban chat cua
-// chung (viec cu the can lam), khong mat/sai lech du lieu da co.
-enum LifeItemType {
-  ACTION
+// ---------------------------------------------------------------------------
+// Planner - REFACTOR TOAN DIEN [2026-10-09]
+// ---------------------------------------------------------------------------
+// Thay the HOAN TOAN model cu (date + scheduledMinute + durationMinutes +
+// itemType ACTION/EVENT/HABIT/REFLECTION + kind SIMPLE/BIG + parent/children
+// + area/project/tags/metadata/isFocus/color). Ly do: model cu ep MOI item
+// phai co 1 `date` duy nhat, khong dien dat duoc 4 trang thai lich THAT SU
+// khac nhau (chua len lich / chi co han chot / co khung gio / ca ngay +
+// nhieu ngay), va `deadline @db.Date` LAM MAT phan GIO nguoi dung nhap.
+//
+// 3 loai duy nhat (yeu cau nguoi dung: bo han HABIT/REFLECTION):
+//   TASK     - viec can lam: co the UNSCHEDULED / DEADLINE / TIMED
+//   EVENT    - lich hen: TIMED hoac ALL_DAY (ho tro nhieu ngay)
+//   REMINDER - nhac viec tai 1 thoi diem: luon DEADLINE
+enum PlannerItemType {
+  TASK
   EVENT
-  HABIT
-  REFLECTION
+  REMINDER
 }
 
-// Priority la METADATA rieng, KHONG phai Type/mau Type (spec section 9: "Một
-// màu = một semantic layer... Priority không dùng màu Type. Chỉ xuất hiện ở
-// dot/badge/small indicator"). Nullable - khong bat buoc moi item deu co.
-enum LifeItemPriority {
-  HIGH
-  MEDIUM
+// Category = "day la viec gi" -> quyet dinh MAU (main/light/border) cua the
+// tren lich. Khop 1-1 voi bang "Event category colors" trong design
+// reference (calendar-ui-configuration.md section 3).
+enum PlannerCategory {
+  STUDY
+  MEETING
+  DEADLINE
+  PERSONAL
+  SPORTS
+  CALL
+  BREAK
+  OTHER
+}
+
+// Status = "viec dang o trang thai nao" - DOC LAP hoan toan voi category
+// (design reference section 4: "Keep category and status separate... Do not
+// recolor the entire event card based on status"). Thay cho cap
+// `done: Boolean` + `status: String?` tu do truoc day.
+enum PlannerStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  NEEDS_ATTENTION
+  OVERDUE
+  CANCELLED
+}
+
+// NONE la 1 gia tri THAT (khong phai null) - de "khong uu tien" cung la 1
+// lua chon tuong minh tren UI, khong phai trang thai "chua dien".
+enum PlannerPriority {
+  NONE
   LOW
+  MEDIUM
+  HIGH
+}
+
+// Truc dinh nghia Y NGHIA cua startAt/endAt/dueAt - thay vi de 3 cot nullable
+// tu do roi phai doan. Moi `scheduleKind` rang buoc DUNG 1 to hop cot (xem
+// validate o PlannerService.normalizeSchedule()):
+//   UNSCHEDULED - khong cot nao (viec chua xep lich)
+//   DEADLINE    - CHI dueAt (han chot/thoi diem nhac, co CA GIO)
+//   TIMED       - startAt + endAt (khung gio cu the, endAt > startAt)
+//   ALL_DAY     - startAt + endAt o moc 00:00, endAt la ngay cuoi BAO GOM
+enum PlannerScheduleKind {
+  UNSCHEDULED
+  DEADLINE
+  TIMED
+  ALL_DAY
 }
 
 model PlannerItem {
-  id              String          @id @default(uuid())
-  userId          String
-  date            DateTime        @db.Date
-  title           String
-  kind            PlannerItemKind @default(SIMPLE)
-  // [2026-10-06] Loai Life Item (Action/Event/Habit/Reflection) - quyet dinh
-  // CACH nguoi dung tuong tac voi item (co checkbox/complete hay khong, co
-  // field rieng gi - xem `metadata`), KHAC voi `kind` (SIMPLE/BIG - truc
-  // RIENG, van giu de Action "lớn" co the chua dau viec con nhu truoc).
-  itemType        LifeItemType    @default(ACTION)
-  // [2026-10-06] Mau the TRUOC DAY nguoi dung tu chon tu do (hex) - KHONG CON
-  // dung de quyet dinh mau hien thi nua (mau gio la SEMANTIC THEO itemType,
-  // xem life-item-types.ts ben FE + model PlannerTypeColor duoi) - GIU LAI
-  // CHI de khong mat du lieu cu/tranh migration xoa cot, code MOI khong doc
-  // field nay nua.
-  color           String?
-  // [2026-10-07] "chọn màu này sẽ là màu của card, không liên quan tới loại
-  // của card" (yeu cau nguoi dung) - mau RIENG cho 1 item CU THE, DOC LAP
-  // hoan toan voi itemType (khac PlannerTypeColor o duoi - do la mau THEO
-  // TYPE, ap dung cho MOI item CUNG type; con day la mau cho DUNG 1 the).
-  // Gia tri = 1 trong cac id cua LIFE_ITEM_PALETTES (FE, life-item-types.ts -
-  // vd "macos-blue", "cyan-sky"...) - null = CHUA tu chon rieng, FE fallback
-  // ve mau THEO TYPE nhu truoc (resolveLifeItemPalette).
-  colorPaletteId  String?
-  // Gio len lich cu the trong ngay (phut tinh tu 0h, vd 9:30 = 570) - nullable,
-  // khong bat buoc moi item deu co gio.
-  scheduledMinute Int?
-  // [2026-10-05] Thoi luong (phut) - yeu cau nguoi dung (redesign Planner
-  // "Right Panel"): timeline "09:30 — 11:00", progress "gio da lam/tong gio",
-  // chia cot khi 2 viec trung gio deu can biet gio KET THUC (truoc day chi co
-  // scheduledMinute = gio BAT DAU). null = chua dat (item cu truoc migration
-  // nay, hoac nguoi dung khong nhap) - FE tu fallback ve 1 do dai mac dinh
-  // khi ve UI (xem DEFAULT_DURATION_MINUTES trong PlannerShell.tsx).
-  durationMinutes Int?
-  // Nguoi dung TU danh dau 1 viec la "trong tam" cua ngay (yeu cau nguoi
-  // dung: "Today's Focus... cách mình recommend cho MVP: User tự chọn ⭐ khi
-  // tạo task"). CHI 1 item isFocus=true MOI thuc su y nghia tai 1 thoi diem
-  // cho 1 ngay ve mat UX (PlannerShell.tsx tu lay item DAU TIEN co co nay),
-  // nhung KHONG rang buoc unique o DB (don gian hoa - neu nguoi dung lo danh
-  // dau 2 viec, UI chi hien viec dau tien, khong loi).
-  isFocus         Boolean         @default(false)
-  done            Boolean         @default(false)
-  // [2026-10-07] "Nội dung chi tiết" rieng - yeu cau nguoi dung: "task cần
-  // phải có phần viết nội dung chi tiết của task nữa" (khac `title` ngan +
-  // khac `status`/`area`/`project` deu la nhan NGAN, field nay la TEXT TU DO,
-  // dai bao nhieu cung duoc - String cua Prisma tren provider postgresql mac
-  // dinh da la kieu `text` khong gioi han, khong can @db.Text).
-  description     String?
+  id          String          @id @default(uuid())
+  userId      String
+  type        PlannerItemType
+  title       String
+  description String?
 
-  // [2026-10-06] Metadata MOI theo spec "Good Life" - tat ca deu OPTIONAL
-  // (khong bat buoc dien, "progressive disclosure"). priority/area/project/
-  // tags/deadline dung CHUNG cho moi Type (spec section 8-16: day la
-  // "metadata", khong phai Type). `metadata` (Json) chua cac field RIENG
-  // theo tung Type (Event: location/participants/meetingUrl; Habit:
-  // frequencyPerWeek/preferredDays/preferredTime/target; Reflection:
-  // prompts[]) - dung 1 cot Json DUY NHAT thay vi 3 bang rieng de khong phai
-  // migrate schema moi lan them 1 field nho cho 1 Type, doc du lieu qua
-  // kieu TypeScript rieng o service (xem notes.service.ts lam vi du mau cho
-  // pattern Json tren model khac trong CHINH schema nay).
-  priority        LifeItemPriority?
-  status          String?
-  area            String?
-  project         String?
-  tags            String[]        @default([])
-  deadline        DateTime?       @db.Date
-  metadata        Json?
-  // Thu tu hien thi THEO Y nguoi dung sap xep - rieng trong pham vi 1 ngay
-  // (top-level) hoac 1 cha (children).
-  orderIndex      Int             @default(0)
-  parentId        String?
-  parent          PlannerItem?    @relation("PlannerItemChildren", fields: [parentId], references: [id], onDelete: Cascade)
-  children        PlannerItem[]   @relation("PlannerItemChildren")
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  category PlannerCategory @default(OTHER)
+  status   PlannerStatus   @default(SCHEDULED)
+  priority PlannerPriority @default(NONE)
 
-  @@index([userId, date])
-  @@index([parentId])
+  scheduleKind PlannerScheduleKind @default(UNSCHEDULED)
+  // TIMED: moc bat dau/ket thuc day du. ALL_DAY: 00:00 cua ngay dau/ngay cuoi
+  // (bao gom). UNSCHEDULED/DEADLINE: ca 2 deu null.
+  startAt      DateTime?
+  endAt        DateTime?
+  // DEADLINE: thoi diem den han - DateTime DAY DU (KHONG @db.Date nhu cot
+  // `deadline` cu, vi cot do lam MAT phan gio nguoi dung chon).
+  dueAt        DateTime?
+
+  location   String?
+  meetingUrl String?
+  // [{ id, title, done }] - thay cho co che parent/children 1 cap cu (vua
+  // nang ne vua khong tao duoc tu UI live).
+  checklist  Json?
+  // Quy tac lap lai - LUU duoc nhung CHUA co logic sinh instance (khong mo
+  // rong thanh nhieu dong). Xem PlannerService: recurrence duoc giu nguyen
+  // van, FE hien thi lai; chua co "this/future/all" editing.
+  recurrence Json?
+
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, startAt])
+  @@index([userId, dueAt])
+  @@index([userId, status])
 }
 
-// [2026-10-06] "User customization" (spec section 21): nguoi dung doi CA 1
-// "color family" (accent/strong/soft/background/border/text) cho 1 Type
-// CHU KHONG CHO doi tung mau rieng le (dung tinh than Card Color System da
-// lam cho CardGrid - card-palettes.ts) - 1 dong/user/type, gia tri la
-// `paletteId` (tham chieu toi LIFE_ITEM_PALETTES o FE, xem life-item-types.ts).
-// Vang mat 1 type = dung mau mac dinh cua chinh Type do (Action=Blue,
-// Event=Lavender, Habit=Sage, Reflection=Sand - "để user mới mở app không
-// phải configuration gì cả").
-model PlannerTypeColor {
-  id        String       @id @default(uuid())
+// Mau ghi de THEO CATEGORY (truoc day la PlannerTypeColor - ghi de theo
+// itemType, ma itemType da bi bo). Vang mat 1 dong = dung mau mac dinh cua
+// category do trong design reference. Luu thang bo 3 hex de tu mo ta, khong
+// phu thuoc 1 bang paletteId ben FE.
+model PlannerCategoryColor {
+  id        String          @id @default(uuid())
   userId    String
-  type      LifeItemType
-  paletteId String
-  updatedAt DateTime     @updatedAt
+  category  PlannerCategory
+  main      String
+  light     String
+  border    String
+  updatedAt DateTime        @updatedAt
 
-  @@unique([userId, type])
+  @@unique([userId, category])
 }
 
-// [2026-10-07] Settings modal cua Planner (toolbar icon moi, xem
-// PlannerSettingsModal.tsx FE) - 1 DONG/user (giong TrackingSettings o
-// tren), KHONG phai nhieu dong nhu PlannerTypeColor (moi field la 1 "cong
-// tac" DOC LAP, khong co truc "loai" nao de group theo). Tat ca field co
-// @default - 1 user moi chua tung mo Settings van co the GET ngay (service
-// tu tao dong voi default neu chua ton tai, xem getSettings()).
+// Settings cua Planner - 1 DONG/user. Tat ca field co @default nen user moi
+// chua tung mo Settings van GET duoc ngay (service tu tao dong, xem
+// getSettings()).
 model PlannerSettings {
   userId String @id
 
@@ -1505,8 +1496,7 @@ model PlannerSettings {
   showAllDaySection Boolean @default(true)
   density           String  @default("COMFORTABLE") // COMPACT | COMFORTABLE
 
-  // --- Calendar ---
-  // Phut tinh tu 0h (cung don vi voi PlannerItem.scheduledMinute).
+  // --- Calendar --- (phut tinh tu 0h)
   workingHoursStart Int @default(480) // 08:00
   workingHoursEnd   Int @default(1320) // 22:00
   firstVisibleHour  Int @default(0)
@@ -1514,10 +1504,13 @@ model PlannerSettings {
   timeSlotMinutes   Int @default(30) // 15 | 30 | 60
 
   // --- Task appearance ---
-  showTaskType Boolean @default(true)
+  // [2026-10-09] showTaskType -> showCategory, bo showArea/showProject (2 cot
+  // area/project khong con ton tai), them showStatus/showLocation cho dung
+  // bo field moi.
+  showCategory Boolean @default(true)
+  showStatus   Boolean @default(true)
   showDuration Boolean @default(true)
-  showArea     Boolean @default(false)
-  showProject  Boolean @default(false)
+  showLocation Boolean @default(true)
   showPriority Boolean @default(true)
 
   completedTaskDisplay String @default("KEEP_VISIBLE") // KEEP_VISIBLE | COLLAPSE | HIDE
@@ -1695,29 +1688,29 @@ model ContentSeriesCategory {
 // installTabs/faq de null = ke thua/khong co, KHAC mang rong (mang rong o
 // Series.installTabs nghia la series khong bat Install Widget).
 model ContentSeriesEntry {
-  id              String                @id @default(uuid())
-  seriesId        String
-  series          ContentSeries         @relation(fields: [seriesId], references: [id], onDelete: Cascade)
-  categoryId      String
-  category        ContentSeriesCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  slug            String
-  orderIndex      Int
-  title           String
+  id                 String                @id @default(uuid())
+  seriesId           String
+  series             ContentSeries         @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  categoryId         String
+  category           ContentSeriesCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  slug               String
+  orderIndex         Int
+  title              String
   // Ten hien thi RIENG trong sidebar (cay category/entry) - null = dung
   // chung `title` (mac dinh, khong bat buoc dien them). Tach khoi `title`
   // (H1 tren trang doc) vi 2 ngu canh do dai chu cho phep khac nhau: sidebar
   // hep can 1 dong ngan gon, H1 co the dai/mo ta hon - yeu cau nguoi dung
   // "tôi muốn có thể tùy chỉnh title ở 2 vị trí đó".
-  navTitle        String?
-  subtitle        String?
-  icon            String?
-  source          String?
-  contentMarkdown String
+  navTitle           String?
+  subtitle           String?
+  icon               String?
+  source             String?
+  contentMarkdown    String
   // Ghi de Install Widget rieng cho Entry nay - null = dung
   // ContentSeries.installTabs. Xem comment tren ContentSeries.installTabs.
-  installTabs     Json?
+  installTabs        Json?
   // [{question, answer}] - null/rong = khong hien FAQ section.
-  faq             Json?
+  faq                Json?
   // Danh sach "khoi noi dung" hien THE TREN CUNG bai (truoc than bai markdown) -
   // yeu cau nguoi dung: "chia làm nửa trên... custom thêm đa dạng các
   // element... sắp xếp thứ tự hiển thị". Moi phan tu: {id, type: "toc" |
@@ -1726,7 +1719,7 @@ model ContentSeriesEntry {
   // ContentSeries.actions). null/rong = fallback ve hanh vi CU (1 box TOC H2
   // tu dong, xem SeriesEntryContentBlocks.tsx) - entry cu KHONG can migrate
   // du lieu.
-  contentBlocks   Json?
+  contentBlocks      Json?
   // [2026-09-17] Danh sach section+thuat ngu cho layout "Dictionary" (khac
   // HOAN TOAN bai viet tuan tu thuong: search + sidebar Sections + luoi 2
   // cot) - yeu cau nguoi dung: "bổ sung thêm 1 cate Guides... trong này sẽ
@@ -1737,10 +1730,10 @@ model ContentSeriesEntry {
   // TREN SU CO MAT cua field nay (khong con hardcode theo slug entry nua).
   // Shape: [{ id, title, terms: [{ term, description, href? }] }].
   dictionarySections Json?
-  readTimeMinutes Int                   @default(1)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  notes           Note[]
+  readTimeMinutes    Int                   @default(1)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  notes              Note[]
 
   @@unique([seriesId, slug])
   @@unique([seriesId, orderIndex])
@@ -1761,19 +1754,19 @@ model ContentSeriesEntry {
 // camelCase khop 1-1 voi NoteType phia FE (src/lib/notes/note-types.ts),
 // tranh 1 lop map enum<->string o giua khong can thiet.
 model Note {
-  id           String   @id @default(uuid())
-  userId       String
-  entryId      String
-  entry        ContentSeriesEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  seriesSlug   String
-  type         String
-  content      String
-  tags         String[] @default([])
-  quoteText    String?
-  quotePrefix  String?
-  quoteSuffix  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String             @id @default(uuid())
+  userId      String
+  entryId     String
+  entry       ContentSeriesEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  seriesSlug  String
+  type        String
+  content     String
+  tags        String[]           @default([])
+  quoteText   String?
+  quotePrefix String?
+  quoteSuffix String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 
   @@index([userId, entryId])
   @@index([userId, seriesSlug])

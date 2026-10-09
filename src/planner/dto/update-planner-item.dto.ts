@@ -1,117 +1,102 @@
 import {
   IsArray,
-  IsBoolean,
-  IsDateString,
-  IsIn,
+  IsEnum,
+  IsISO8601,
   IsInt,
-  IsNotEmpty,
-  IsObject,
   IsOptional,
   IsString,
-  Matches,
-  Min,
+  IsUrl,
+  MaxLength,
+  MinLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  PlannerCategory,
+  PlannerItemType,
+  PlannerPriority,
+  PlannerScheduleKind,
+  PlannerStatus,
+} from '../../../generated/prisma/client';
+import { ChecklistItemDto } from './create-planner-item.dto';
 
-const ITEM_TYPES = ['ACTION', 'EVENT', 'HABIT', 'REFLECTION'] as const;
-const PRIORITIES = ['HIGH', 'MEDIUM', 'LOW'] as const;
-
+// [2026-10-09] PATCH - moi field deu optional. Cac field NULLABLE dung
+// @ValidateIf(... !== null) de phan biet 3 truong hop:
+//   khong truyen  -> giu nguyen
+//   truyen null   -> XOA gia tri
+//   truyen gia tri-> dat moi
 export class UpdatePlannerItemDto {
   @IsOptional()
+  @IsEnum(PlannerItemType)
+  type?: PlannerItemType;
+
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
+  @MinLength(1)
+  @MaxLength(300)
   title?: string;
 
   @IsOptional()
-  @IsBoolean()
-  done?: boolean;
-
-  @IsOptional()
-  @IsIn(ITEM_TYPES)
-  itemType?: (typeof ITEM_TYPES)[number];
-
-  // Gio NULL de bo gio da dat - phan biet voi "khong truyen gi" (undefined =
-  // giu nguyen) qua kiem tra `'scheduledMinute' in dto` o PlannerService.
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  scheduledMinute?: number | null;
-
-  // null = bo mau da dat (ve lai mac dinh), cung tinh than voi scheduledMinute
-  // o tren - phan biet voi "khong truyen" (giu nguyen) qua `'color' in dto`.
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @Matches(/^#[0-9a-fA-F]{6}$/, {
-    message: 'Mã màu phải ở định dạng hex (vd "#ef4444").',
-  })
-  color?: string | null;
-
-  // [2026-10-07] null = bo mau RIENG da chon (quay lai mau theo itemType),
-  // cung tinh than cac field nullable khac o day - yeu cau nguoi dung: "chọn
-  // màu này sẽ là màu của card, không liên quan tới loại của card".
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
+  @ValidateIf((_, v) => v !== null)
   @IsString()
-  colorPaletteId?: string | null;
-
-  // null = bo thoi luong da dat, cung tinh than voi scheduledMinute/color o
-  // tren - phan biet voi "khong truyen" qua `'durationMinutes' in dto`.
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsInt()
-  @Min(1)
-  durationMinutes?: number | null;
-
-  @IsOptional()
-  @IsBoolean()
-  isFocus?: boolean;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  orderIndex?: number;
-
-  // --- Metadata moi - deu nullable (xoa gia tri da dat) cung tinh than
-  // scheduledMinute/color/durationMinutes o tren, phan biet qua `'field' in dto`.
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsIn(PRIORITIES)
-  priority?: (typeof PRIORITIES)[number] | null;
-
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  status?: string | null;
-
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  area?: string | null;
-
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  project?: string | null;
-
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  tags?: string[];
-
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsDateString()
-  deadline?: string | null;
-
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsObject()
-  metadata?: Record<string, unknown> | null;
-
-  // null = xoa noi dung chi tiet da dat, cung tinh than cac field null-able
-  // khac o tren (phan biet voi "khong truyen" qua `'description' in dto`).
-  @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
+  @MaxLength(10000)
   description?: string | null;
+
+  @IsOptional()
+  @IsEnum(PlannerCategory)
+  category?: PlannerCategory;
+
+  @IsOptional()
+  @IsEnum(PlannerStatus)
+  status?: PlannerStatus;
+
+  @IsOptional()
+  @IsEnum(PlannerPriority)
+  priority?: PlannerPriority;
+
+  @IsOptional()
+  @IsEnum(PlannerScheduleKind)
+  scheduleKind?: PlannerScheduleKind;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsISO8601()
+  startAt?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsISO8601()
+  endAt?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsISO8601()
+  dueAt?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsString()
+  @MaxLength(300)
+  location?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsUrl({ require_protocol: false })
+  @MaxLength(2000)
+  meetingUrl?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ChecklistItemDto)
+  checklist?: ChecklistItemDto[] | null;
+
+  @IsOptional()
+  recurrence?: Record<string, unknown> | null;
+
+  @IsOptional()
+  @IsInt()
+  orderIndex?: number;
 }

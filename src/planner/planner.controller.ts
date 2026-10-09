@@ -14,7 +14,7 @@ import { PlannerService } from './planner.service';
 import { CurrentUserId } from '../auth/current-user.decorator';
 import { CreatePlannerItemDto } from './dto/create-planner-item.dto';
 import { UpdatePlannerItemDto } from './dto/update-planner-item.dto';
-import { SetTypeColorDto } from './dto/set-type-color.dto';
+import { SetCategoryColorDto } from './dto/set-category-color.dto';
 import { UpdatePlannerSettingsDto } from './dto/update-planner-settings.dto';
 
 // Planner - trang /planner RIENG moi, HOAN TOAN DOC LAP voi /tracking (dang
@@ -31,6 +31,14 @@ export class PlannerController {
     @Query('to') to: string,
   ) {
     return this.plannerService.listRange(userId, from, to);
+  }
+
+  // [2026-10-09] Viec CHUA xep lich khong thuoc khoang ngay nao - phai co
+  // duong lay rieng, neu khong se "bien mat" khoi UI (spec muc B: "Model
+  // unscheduled tasks... explicitly").
+  @Get('unscheduled')
+  listUnscheduled(@CurrentUserId() userId: string) {
+    return this.plannerService.listUnscheduled(userId);
   }
 
   @Post()
@@ -54,32 +62,31 @@ export class PlannerController {
   }
 }
 
-// [2026-10-06] Controller RIENG (khac prefix voi PlannerController o tren,
-// 'planner/items') - "User customization" (spec section 21): doi mau CA 1
-// family cho 1 Type (Action/Event/Habit/Reflection), tach khoi CRUD item vi
-// day la 1 "setting" cap user, khong thuoc ve 1 PlannerItem cu the nao.
-@Controller('planner/type-colors')
-export class PlannerTypeColorController {
+// [2026-10-09] Thay PlannerTypeColorController cu (mau theo itemType, da bo
+// cung LifeItemType) - gio ghi de mau theo CATEGORY. Vang mat 1 dong = dung
+// mau mac dinh cua category trong design reference ben FE.
+@Controller('planner/category-colors')
+export class PlannerCategoryColorController {
   constructor(private plannerService: PlannerService) {}
 
   @Get()
   list(@CurrentUserId() userId: string) {
-    return this.plannerService.getTypeColors(userId);
+    return this.plannerService.getCategoryColors(userId);
   }
 
-  @Patch(':type')
+  @Patch(':category')
   set(
     @CurrentUserId() userId: string,
-    @Param('type') type: string,
-    @Body() dto: SetTypeColorDto,
+    @Param('category') category: string,
+    @Body() dto: SetCategoryColorDto,
   ) {
-    return this.plannerService.setTypeColor(userId, type, dto.paletteId);
+    return this.plannerService.setCategoryColor(userId, category, dto);
   }
 
   @HttpCode(HttpStatus.NO_CONTENT)
-  @Delete(':type')
-  reset(@CurrentUserId() userId: string, @Param('type') type: string) {
-    return this.plannerService.resetTypeColor(userId, type);
+  @Delete(':category')
+  reset(@CurrentUserId() userId: string, @Param('category') category: string) {
+    return this.plannerService.resetCategoryColor(userId, category);
   }
 }
 
