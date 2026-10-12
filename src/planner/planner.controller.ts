@@ -16,6 +16,7 @@ import { CreatePlannerItemDto } from './dto/create-planner-item.dto';
 import { UpdatePlannerItemDto } from './dto/update-planner-item.dto';
 import { SetCategoryColorDto } from './dto/set-category-color.dto';
 import { UpdatePlannerSettingsDto } from './dto/update-planner-settings.dto';
+import { CreatePlannerItemAttachmentDto } from './dto/create-planner-item-attachment.dto';
 
 // Planner - trang /planner RIENG moi, HOAN TOAN DOC LAP voi /tracking (dang
 // khoa, xem tracking/layout.tsx o FE) - xem comment day du trong
@@ -59,6 +60,33 @@ export class PlannerController {
   @Delete(':id')
   remove(@CurrentUserId() userId: string, @Param('id') id: string) {
     return this.plannerService.remove(userId, id);
+  }
+
+  // [2026-10-12] Dinh kem Series(/Entry) - xem comment day du tren model
+  // PlannerItemAttachment (schema.prisma) + planner.service.ts. Tai RIENG
+  // (lazy, khi mo panel chi tiet), khong gop vao payload `listRange`.
+  @Get(':id/attachments')
+  listAttachments(@CurrentUserId() userId: string, @Param('id') id: string) {
+    return this.plannerService.listAttachments(userId, id);
+  }
+
+  @Post(':id/attachments')
+  addAttachment(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Body() dto: CreatePlannerItemAttachmentDto,
+  ) {
+    return this.plannerService.addAttachment(userId, id, dto);
+  }
+
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete(':id/attachments/:attachmentId')
+  removeAttachment(
+    @CurrentUserId() userId: string,
+    @Param('id') id: string,
+    @Param('attachmentId') attachmentId: string,
+  ) {
+    return this.plannerService.removeAttachment(userId, id, attachmentId);
   }
 }
 

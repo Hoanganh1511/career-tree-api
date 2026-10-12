@@ -16,6 +16,7 @@ import { CreatePlannerItemDto } from './dto/create-planner-item.dto';
 import { UpdatePlannerItemDto } from './dto/update-planner-item.dto';
 import { UpdatePlannerSettingsDto } from './dto/update-planner-settings.dto';
 import { SetCategoryColorDto } from './dto/set-category-color.dto';
+import { CreatePlannerItemAttachmentDto } from './dto/create-planner-item-attachment.dto';
 
 // [2026-10-09] REFACTOR Planner: Task/Event/Reminder.
 //
@@ -48,6 +49,21 @@ export interface PlannerItemApi {
   orderIndex: number;
   createdAt: string;
   updatedAt: string;
+}
+
+// [2026-10-12] Dinh kem Series(/Entry) - xem comment model PlannerItemAttachment.
+export interface PlannerItemAttachmentApi {
+  id: string;
+  seriesId: string;
+  seriesSlug: string;
+  seriesTitle: string;
+  seriesCoverImageUrl: string | null;
+  // null = dinh kem CA Series, khong phai 1 entry cu the.
+  entryId: string | null;
+  entrySlug: string | null;
+  entryTitle: string | null;
+  orderIndex: number;
+  createdAt: string;
 }
 
 // Ket qua chuan hoa lich - DUNG 1 bo cot hop le cho moi scheduleKind.
@@ -394,6 +410,118 @@ export class PlannerService {
       create: { userId, ...dto },
       update: { ...dto },
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Dinh kem Series - xem comment day du tren model PlannerItemAttachment
+  // (schema.prisma). Tai RIENG theo yeu cau (lazy, khi mo panel chi tiet 1
+  // item) - KHONG nhoi vao `toApi()`/listRange, tranh join them cho MOI item
+  // tren luoi gio du phan lon khong co dinh kem nao.
+  // -------------------------------------------------------------------------
+
+  async listAttachments(userId: string, itemId: string) {
+    await this.assertOwner(userId, itemId);
+    const rows = await this.prisma.plannerItemAttachment.findMany({
+      where: { plannerItemId: itemId },
+      orderBy: { orderIndex: 'asc' },
+      include: {
+        series: {
+          select: { id: true, slug: true, title: true, coverImageUrl: true },
+        },
+        entry: { select: { id: true, slug: true, title: true } },
+      },
+    });
+    return rows.map((r) => this.toAttachmentApi(r));
+  }
+
+  async addAttachment(
+    userId: string,
+    itemId: string,
+    dto: CreatePlannerItemAttachmentDto,
+  ) {
+    await this.assertOwner(userId, itemId);
+
+    const series = await this.prisma.contentSeries.findUnique({
+      where: { id: dto.seriesId },
+      select: { id: true, slug: true, title: true, coverImageUrl: true },
+    });
+    if (!series) {
+      throw new BadRequestException('Series không tồn tại.');
+    }
+
+    let entry: { id: string; slug: string; title: string } | null = null;
+    if (dto.entryId) {
+      entry = await this.prisma.contentSeriesEntry.findUnique({
+        where: { id: dto.entryId },
+        select: { id: true, slug: true, title: true, seriesId: true },
+      });
+      // `entry` con field `seriesId` tam thoi (select phia tren co lay) de
+      // kiem tra entry THUOC DUNG series da chon - khong tin FE gui dung cap.
+      if (
+        !entry ||
+        (entry as { seriesId?: string }).seriesId !== dto.seriesId
+      ) {
+        throw new BadRequestException('Entry không thuộc Series đã chọn.');
+      }
+    }
+
+    const last = await this.prisma.plannerItemAttachment.findFirst({
+      where: { plannerItemId: itemId },
+      orderBy: { orderIndex: 'desc' },
+      select: { orderIndex: true },
+    });
+
+    const row = await this.prisma.plannerItemAttachment.create({
+      data: {
+        plannerItemId: itemId,
+        seriesId: dto.seriesId,
+        entryId: dto.entryId ?? null,
+        orderIndex: (last?.orderIndex ?? -1) + 1,
+      },
+      include: {
+        series: {
+          select: { id: true, slug: true, title: true, coverImageUrl: true },
+        },
+        entry: { select: { id: true, slug: true, title: true } },
+      },
+    });
+    return this.toAttachmentApi(row);
+  }
+
+  async removeAttachment(userId: string, itemId: string, attachmentId: string) {
+    await this.assertOwner(userId, itemId);
+    const { count } = await this.prisma.plannerItemAttachment.deleteMany({
+      where: { id: attachmentId, plannerItemId: itemId },
+    });
+    if (count === 0) {
+      throw new NotFoundException(`Attachment ${attachmentId} not found`);
+    }
+  }
+
+  private toAttachmentApi(row: {
+    id: string;
+    orderIndex: number;
+    createdAt: Date;
+    series: {
+      id: string;
+      slug: string;
+      title: string;
+      coverImageUrl: string | null;
+    };
+    entry: { id: string; slug: string; title: string } | null;
+  }): PlannerItemAttachmentApi {
+    return {
+      id: row.id,
+      seriesId: row.series.id,
+      seriesSlug: row.series.slug,
+      seriesTitle: row.series.title,
+      seriesCoverImageUrl: row.series.coverImageUrl,
+      entryId: row.entry?.id ?? null,
+      entrySlug: row.entry?.slug ?? null,
+      entryTitle: row.entry?.title ?? null,
+      orderIndex: row.orderIndex,
+      createdAt: row.createdAt.toISOString(),
+    };
   }
 
   private toApi(item: PlannerItem, now: Date): PlannerItemApi {

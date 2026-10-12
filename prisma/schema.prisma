@@ -1462,9 +1462,44 @@ model PlannerItem {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
+  // [2026-10-12] Dinh kem Series - xem comment day du tren model
+  // PlannerItemAttachment.
+  attachments PlannerItemAttachment[]
+
   @@index([userId, startAt])
   @@index([userId, dueAt])
   @@index([userId, status])
+}
+
+// [2026-10-12] Dinh kem 1 PlannerItem voi 1 Series (hoac 1 Entry cu the
+// trong Series) - yeu cau nguoi dung: "Bổ sung tính năng đính kèm các thứ
+// vào task, chẳng hạn như các series". Pham vi da CHOT qua AskUserQuestion:
+// CHI Series (chua ho tro link ngoai/file/post rieng), NHIEU dinh kem/task,
+// hien dang danh sach trong panel chi tiet - xem AttachmentsSection trong
+// PlannerItemDetail.tsx (FE).
+//
+// `entryId` null = dinh kem CA Series (tro ve trang tong quan
+// /series/[slug]); co gia tri = dinh kem 1 ENTRY cu the trong series do
+// (/series/[slug]/[entrySlug]) - 2 muc trong 1 bo chon o FE (xem
+// AttachmentPicker), KHONG phai 2 loai dinh kem khac nhau.
+//
+// onDelete: Cascade CA 2 chieu (xoa PlannerItem -> xoa dinh kem; xoa
+// Series/Entry -> xoa dinh kem) - dinh kem CHI co nghia khi ca 2 dau con
+// ton tai, khong de lai "dinh kem mo coi" tro toi 1 Series da bi xoa.
+model PlannerItemAttachment {
+  id            String              @id @default(uuid())
+  plannerItemId String
+  plannerItem   PlannerItem         @relation(fields: [plannerItemId], references: [id], onDelete: Cascade)
+  seriesId      String
+  series        ContentSeries       @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  entryId       String?
+  entry         ContentSeriesEntry? @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  orderIndex    Int                 @default(0)
+  createdAt     DateTime            @default(now())
+
+  @@index([plannerItemId, orderIndex])
+  @@index([seriesId])
+  @@index([entryId])
 }
 
 // Mau ghi de THEO CATEGORY (truoc day la PlannerTypeColor - ghi de theo
@@ -1657,6 +1692,9 @@ model ContentSeries {
   isVisible              Boolean                 @default(true)
   categories             ContentSeriesCategory[]
   entries                ContentSeriesEntry[]
+  // [2026-10-12] Nguoc cua PlannerItemAttachment.series - xem comment day du
+  // tren model do.
+  plannerAttachments     PlannerItemAttachment[]
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
 }
@@ -1688,11 +1726,11 @@ model ContentSeriesCategory {
 // installTabs/faq de null = ke thua/khong co, KHAC mang rong (mang rong o
 // Series.installTabs nghia la series khong bat Install Widget).
 model ContentSeriesEntry {
-  id                 String                @id @default(uuid())
+  id                 String                  @id @default(uuid())
   seriesId           String
-  series             ContentSeries         @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  series             ContentSeries           @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   categoryId         String
-  category           ContentSeriesCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category           ContentSeriesCategory   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   slug               String
   orderIndex         Int
   title              String
@@ -1730,10 +1768,13 @@ model ContentSeriesEntry {
   // TREN SU CO MAT cua field nay (khong con hardcode theo slug entry nua).
   // Shape: [{ id, title, terms: [{ term, description, href? }] }].
   dictionarySections Json?
-  readTimeMinutes    Int                   @default(1)
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
+  readTimeMinutes    Int                     @default(1)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
   notes              Note[]
+  // [2026-10-12] Nguoc cua PlannerItemAttachment.entry - xem comment day du
+  // tren model do.
+  plannerAttachments PlannerItemAttachment[]
 
   @@unique([seriesId, slug])
   @@unique([seriesId, orderIndex])
