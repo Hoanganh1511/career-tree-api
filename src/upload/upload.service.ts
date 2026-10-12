@@ -234,33 +234,69 @@ export class UploadService {
     // thi GIU LAI: attachmentUrl (Message), avatarUrl (User), coverImageUrl
     // (UserProfile), coverImageUrl (PostCollection), va MOI string long
     // trong Post.data (chua URL anh bia/anh/video-thumbnail tuy kind).
-    const [messages, users, profiles, collections, posts] = await Promise.all([
-      this.prisma.message.findMany({
-        where: { attachmentUrl: { not: null } },
-        select: { attachmentUrl: true },
-      }),
-      this.prisma.user.findMany({
-        where: { avatarUrl: { not: null } },
-        select: { avatarUrl: true },
-      }),
-      this.prisma.userProfile.findMany({
-        where: { coverImageUrl: { not: null } },
-        select: { coverImageUrl: true },
-      }),
-      this.prisma.postCollection.findMany({
-        where: { coverImageUrl: { not: null } },
-        select: { coverImageUrl: true },
-      }),
-      this.prisma.post.findMany({ select: { data: true } }),
-    ]);
-    const postDataStrings: string[] = [];
-    for (const p of posts) this.collectStrings(p.data, postDataStrings);
+    //
+    // [2026-10-13 fix] THEM ContentSeries/ContentSeriesEntry - BUG THAT da
+    // gap: anh dan vao THAN BAI 1 Content Series Entry (contentMarkdown,
+    // qua SeriesEntryEditor.tsx) di qua CUNG 1 endpoint/folder "chat-images"
+    // (xem comment uploadPostImageAction/"Dung chung 1 duong upload that voi
+    // chat" + comment dau ham nay) nhung model nay CHUA TUNG duoc doi chieu
+    // o day - job CHAY MOI GIO coi moi anh nhu vay la "mo coi" sau 24h roi
+    // XOA THAT trong luc van dang hien thi trong bai (nguoi dung bao: "các
+    // ảnh trong bài các ngày trước tôi paste vào sao giờ thành như này").
+    // Quet DE QUY (collectStrings, giong Post.data) ca contentMarkdown (chuoi
+    // thuong) LAN cac cot Json co the chua URL anh (installTabs/stats/
+    // externalLinks/actions o Series, installTabs/faq/contentBlocks/
+    // dictionarySections o Entry) - an toan hon liet ke tung field rieng,
+    // khong bo sot khi co field moi sau nay (cung ly do da ap dung cho
+    // Post.data).
+    const [messages, users, profiles, collections, posts, series, entries] =
+      await Promise.all([
+        this.prisma.message.findMany({
+          where: { attachmentUrl: { not: null } },
+          select: { attachmentUrl: true },
+        }),
+        this.prisma.user.findMany({
+          where: { avatarUrl: { not: null } },
+          select: { avatarUrl: true },
+        }),
+        this.prisma.userProfile.findMany({
+          where: { coverImageUrl: { not: null } },
+          select: { coverImageUrl: true },
+        }),
+        this.prisma.postCollection.findMany({
+          where: { coverImageUrl: { not: null } },
+          select: { coverImageUrl: true },
+        }),
+        this.prisma.post.findMany({ select: { data: true } }),
+        this.prisma.contentSeries.findMany({
+          select: {
+            coverImageUrl: true,
+            stats: true,
+            installTabs: true,
+            externalLinks: true,
+            actions: true,
+          },
+        }),
+        this.prisma.contentSeriesEntry.findMany({
+          select: {
+            contentMarkdown: true,
+            installTabs: true,
+            faq: true,
+            contentBlocks: true,
+            dictionarySections: true,
+          },
+        }),
+      ]);
+    const embeddedStrings: string[] = [];
+    for (const p of posts) this.collectStrings(p.data, embeddedStrings);
+    for (const s of series) this.collectStrings(s, embeddedStrings);
+    for (const e of entries) this.collectStrings(e, embeddedStrings);
     const referencedUrls = [
       ...messages.map((m) => m.attachmentUrl),
       ...users.map((u) => u.avatarUrl),
       ...profiles.map((p) => p.coverImageUrl),
       ...collections.map((c) => c.coverImageUrl),
-      ...postDataStrings,
+      ...embeddedStrings,
     ];
     const referencedKeys = new Set(
       referencedUrls
