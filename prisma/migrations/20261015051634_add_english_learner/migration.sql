@@ -1,3 +1,5 @@
+-- AlterTable
+
 -- CreateTable
 CREATE TABLE "EnglishConcept" (
     "id" TEXT NOT NULL,
