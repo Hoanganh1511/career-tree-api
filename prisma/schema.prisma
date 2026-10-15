@@ -1812,3 +1812,198 @@ model Note {
   @@index([userId, entryId])
   @@index([userId, seriesSlug])
 }
+
+// ============================================================================
+// ENGLISH LEARNER (2026-10-15) - Daily English Learning Tracker, Phase 1 MVP.
+// Lo trinh D1/D2 theo Unit (Destination B2), xac minh kien thuc bang cau hoi
+// (KHONG hoi "hom nay hoc gi"). Pham vi Phase 1 (CHOT qua AskUserQuestion,
+// xem docs/plan): CHI 3 loai cau hoi (Recognition/Application/ErrorDetection)
+// - Recall/Production la Phase 2. KHONG co full spaced-repetition D+1..D+30
+// (ConceptMastery o day CHI co masteryLevel NEW/RECOGNIZED/APPLIED, khong co
+// retention_score/interval) - "da APPLIED truoc hom nay" la dieu kien duy
+// nhat de phan biet "verified" (kien thuc MOI) vs "review_only" (cung co
+// kien thuc CU), thay cho lich D+N day du. D2 KHONG dung bo cau hoi
+// Recall/Production rieng nhu spec goc - D2 hoi LAI chinh Unit do bang 3 loai
+// cau hoi Phase 1, danh dau isRetentionQuestion=true tren EnglishDailyAnswer.
+// moi userId la CHU SO HUU DUY NHAT xem duoc (ownership check o service,
+// giong PlannerItem - khong co @relation toi User).
+// ============================================================================
+
+enum EnglishConceptCategory {
+  GRAMMAR
+  VOCABULARY
+}
+
+enum EnglishQuestionType {
+  RECOGNITION
+  APPLICATION
+  ERROR_DETECTION
+}
+
+enum EnglishDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum EnglishMasteryLevel {
+  NEW
+  RECOGNIZED
+  APPLIED
+}
+
+enum EnglishDayType {
+  D1
+  D2
+}
+
+enum EnglishSessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  INCOMPLETE
+  NO_ASSESSMENT
+}
+
+enum EnglishResultStatus {
+  NEW_KNOWLEDGE_VERIFIED
+  NEW_KNOWLEDGE_DEVELOPING
+  REVIEW_ONLY
+  NEEDS_REINFORCEMENT
+  NO_ASSESSMENT
+}
+
+enum EnglishKnowledgeStatus {
+  VERIFIED
+  DEVELOPING
+  NEEDS_REINFORCEMENT
+}
+
+enum EnglishUnitStatus {
+  NOT_STARTED
+  D1_DONE
+  D2_DONE
+}
+
+// Concept_tag cu the (vd "present_perfect_duration") - KHONG phai Unit. Ten
+// tag khop 1-1 voi gia tri trong EnglishQuestion.conceptTags.
+model EnglishConcept {
+  id                  String                 @id @default(uuid())
+  unit                Int
+  name                String
+  category            EnglishConceptCategory
+  relatedConceptNames String[]               @default([])
+  createdAt           DateTime               @default(now())
+
+  @@unique([unit, name])
+  @@index([unit])
+}
+
+// Question bank - options/distractorExplanations la Json (xem JSON schema
+// trong spec section 5): options = [{ id, text, errorType }].
+model EnglishQuestion {
+  id                     String              @id @default(uuid())
+  unit                   Int
+  conceptTags            String[]
+  questionType           EnglishQuestionType
+  difficulty             EnglishDifficulty
+  stem                   String
+  options                Json
+  correctOptionId        String
+  explanation            String
+  distractorExplanations Json
+  minTimeSeconds         Int
+  timeLimitSeconds       Int
+  sourceUnitExample      Boolean             @default(false)
+  createdAt              DateTime            @default(now())
+
+  @@index([unit, questionType])
+}
+
+model EnglishDailyCheckSession {
+  id                   String               @id @default(uuid())
+  userId               String
+  date                 DateTime             @db.Date
+  unit                 Int
+  dayType              EnglishDayType
+  // Danh sach cau hoi (new-learning + retention) chon luc START session -
+  // luu lai de GET lai (resume/F5) tra ve DUNG bo cau hoi da chon, khong
+  // random lai. retentionQuestionIds la tap con cua questionIds.
+  questionIds          String[]             @default([])
+  retentionQuestionIds String[]             @default([])
+  startedAt            DateTime             @default(now())
+  completedAt          DateTime?
+  status               EnglishSessionStatus @default(IN_PROGRESS)
+  isFirstAttempt       Boolean              @default(true)
+  totalTimeSeconds     Int?
+  resultStatus         EnglishResultStatus?
+  flagSuspicious       Boolean              @default(false)
+
+  @@index([userId, date])
+}
+
+model EnglishDailyAnswer {
+  id                  String   @id @default(uuid())
+  sessionId           String
+  questionId          String
+  userId              String
+  selectedOptionId    String
+  isCorrect           Boolean
+  timeSpentSeconds    Int
+  belowMinTime        Boolean  @default(false)
+  isRetentionQuestion Boolean  @default(false)
+  attemptNumber       Int      @default(1)
+  createdAt           DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([userId, questionId])
+}
+
+// 1 dong/user/concept - thay the "retention_score + interval D+N" cua spec
+// goc bang 1 nac thang don gian NEW -> RECOGNIZED -> APPLIED (xem banner).
+model EnglishConceptMastery {
+  id              String              @id @default(uuid())
+  userId          String
+  conceptId       String
+  masteryLevel    EnglishMasteryLevel @default(NEW)
+  totalAttempts   Int                 @default(0)
+  correctAttempts Int                 @default(0)
+  lastReviewedAt  DateTime?
+
+  @@unique([userId, conceptId])
+}
+
+// Lich su "ngay nao xac minh duoc concept nao" - 1 dong / user / concept /
+// ngay (source luon la daily_check o Phase 1, chua co review/progress_test).
+model EnglishKnowledgeRecord {
+  id        String                 @id @default(uuid())
+  userId    String
+  conceptId String
+  date      DateTime               @db.Date
+  status    EnglishKnowledgeStatus
+
+  @@index([userId, conceptId])
+  @@index([userId, date])
+}
+
+model EnglishUnitProgress {
+  id       String               @id @default(uuid())
+  userId   String
+  unit     Int
+  status   EnglishUnitStatus    @default(NOT_STARTED)
+  d1Date   DateTime?
+  d2Date   DateTime?
+  d1Result EnglishResultStatus?
+  d2Result EnglishResultStatus?
+
+  @@unique([userId, unit])
+}
+
+model EnglishDailyStreak {
+  userId                  String    @id
+  assessmentCurrentStreak Int       @default(0)
+  assessmentLongestStreak Int       @default(0)
+  assessmentLastDate      DateTime? @db.Date
+  learningCurrentStreak   Int       @default(0)
+  learningLongestStreak   Int       @default(0)
+  learningLastDate        DateTime? @db.Date
+}

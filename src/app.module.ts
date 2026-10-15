@@ -30,6 +30,7 @@ import { DiaryModule } from './diary/diary.module';
 import { TrackingModule } from './tracking/tracking.module';
 import { PlannerModule } from './planner/planner.module';
 import { NotesModule } from './notes/notes.module';
+import { EnglishLearnerModule } from './english-learner/english-learner.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { NotesModule } from './notes/notes.module';
     TrackingModule,
     PlannerModule,
     NotesModule,
+    EnglishLearnerModule,
   ],
   controllers: [AppController],
   providers: [AppService],
