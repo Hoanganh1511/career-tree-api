@@ -48,7 +48,7 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
 
-const SEEDED_UNITS = [1, 2, 3, 4];
+const SEEDED_UNITS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 interface ConceptSeed {
   unit: number;
@@ -885,8 +885,806 @@ const UNIT_4_QUESTIONS: QuestionSeed[] = [
   },
 ];
 
-const ALL_CONCEPTS = [...UNIT_1_CONCEPTS, ...UNIT_2_CONCEPTS, ...UNIT_3_CONCEPTS, ...UNIT_4_CONCEPTS];
-const ALL_QUESTIONS = [...UNIT_1_QUESTIONS, ...UNIT_2_QUESTIONS, ...UNIT_3_QUESTIONS, ...UNIT_4_QUESTIONS];
+// ---------------------------------------------------------------------------
+// UNIT 5 - Grammar: Future time
+// ---------------------------------------------------------------------------
+const UNIT_5_CONCEPTS: ConceptSeed[] = [
+  { unit: 5, name: 'future_will_prediction', category: 'GRAMMAR' },
+  { unit: 5, name: 'be_going_to_plan', category: 'GRAMMAR' },
+  { unit: 5, name: 'present_continuous_future_arrangement', category: 'GRAMMAR' },
+  { unit: 5, name: 'present_simple_future_timetable', category: 'GRAMMAR' },
+  { unit: 5, name: 'future_time_clause_present', category: 'GRAMMAR' },
+  { unit: 5, name: 'future_continuous_perfect', category: 'GRAMMAR' },
+];
+
+const UNIT_5_QUESTIONS: QuestionSeed[] = [
+  {
+    unit: 5,
+    conceptTags: ['future_will_prediction'],
+    questionType: 'RECOGNITION',
+    difficulty: 'EASY',
+    stem: 'I think it ___ rain later today.',
+    ...mc('will', [
+      ['is going to', 'evidence_based_future_misuse'],
+      ['is raining', 'present_continuous_for_prediction'],
+    ]),
+    explanation: "'Will' fits a prediction based on opinion ('I think'), not visible evidence.",
+    distractorExplanations: {
+      b: "'is going to' is more natural for a prediction based on something you can see right now.",
+      c: "'is raining' describes an action happening now, not a future prediction.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 5,
+    conceptTags: ['be_going_to_plan'],
+    questionType: 'RECOGNITION',
+    difficulty: 'MEDIUM',
+    stem: 'Look at those dark clouds - it ___ rain soon.',
+    ...mc('is going to', [
+      ['will', 'opinion_based_future_misuse'],
+      ['rains', 'present_simple_for_future_prediction'],
+    ]),
+    explanation: "'Be going to' fits a prediction based on visible evidence ('those dark clouds').",
+    distractorExplanations: {
+      b: "'will' is more natural for a prediction based on opinion, not something you can currently see.",
+      c: "'rains' (Present Simple) doesn't signal a prediction about the near future.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 5,
+    conceptTags: ['present_continuous_future_arrangement'],
+    questionType: 'RECOGNITION',
+    difficulty: 'MEDIUM',
+    stem: 'I ___ Mai for dinner tonight - we arranged it last week.',
+    ...mc('am meeting', [
+      ['will meet', 'will_for_fixed_arrangement'],
+      ['meet', 'present_simple_for_arrangement'],
+    ]),
+    explanation: 'A fixed personal arrangement uses Present Continuous.',
+    distractorExplanations: {
+      b: "'will meet' doesn't capture the sense of a pre-arranged plan.",
+      c: "'meet' (Present Simple) suggests a routine, not one specific arranged event.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 5,
+    conceptTags: ['present_simple_future_timetable'],
+    questionType: 'RECOGNITION',
+    difficulty: 'MEDIUM',
+    stem: 'The train ___ at 9:15 tomorrow morning.',
+    ...mc('leaves', [
+      ['will leave', 'will_for_timetable'],
+      ['is leaving', 'present_continuous_for_timetable'],
+    ]),
+    explanation: 'Fixed timetables/schedules use Present Simple, even for future events.',
+    distractorExplanations: {
+      b: "'will leave' is possible but less natural than Present Simple for a published timetable.",
+      c: "'is leaving' suggests a personal arrangement, not an official timetable.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 5,
+    conceptTags: ['future_time_clause_present'],
+    questionType: 'APPLICATION',
+    difficulty: 'MEDIUM',
+    stem: 'When she ___ home, please tell her to call me.',
+    ...mc('gets', [
+      ['will get', 'will_in_time_clause'],
+      ['is getting', 'present_continuous_in_time_clause'],
+    ]),
+    explanation: "Time clauses with 'when/after/before/as soon as' use a present tense, not 'will'.",
+    distractorExplanations: {
+      b: "'will' is not used in a time clause, even though the meaning is future.",
+      c: "'is getting' is not the standard present tense used in time clauses here.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 5,
+    conceptTags: ['future_continuous_perfect'],
+    questionType: 'APPLICATION',
+    difficulty: 'HARD',
+    stem: 'By this time next year, I ___ my degree.',
+    ...mc('will have finished', [
+      ['will finish', 'future_simple_for_completed_by_future_point'],
+      ['will be finishing', 'future_continuous_for_completed_action'],
+    ]),
+    explanation: "'By + future time point' needs Future Perfect to show completion before that point.",
+    distractorExplanations: {
+      b: "'will finish' doesn't clearly show the action is completed BY that future point.",
+      c: "'will be finishing' suggests the action is still in progress then, not completed.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 5,
+    conceptTags: ['future_continuous_perfect'],
+    questionType: 'APPLICATION',
+    difficulty: 'HARD',
+    stem: "Don't call me at 8pm - I ___ dinner with clients then.",
+    ...mc('will be having', [
+      ['will have', 'future_simple_for_ongoing_future_action'],
+      ['am having', 'present_continuous_for_distant_future'],
+    ]),
+    explanation: 'Future Continuous describes an action in progress at a specific future time.',
+    distractorExplanations: {
+      b: "'will have' doesn't express an action in progress at that specific moment.",
+      c: "'am having' is not natural for an event that far in the future without a clear arrangement context.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 5,
+    conceptTags: ['present_continuous_future_arrangement'],
+    questionType: 'APPLICATION',
+    difficulty: 'MEDIUM',
+    stem: "My sister ___ to Japan next month - she's already booked the flights.",
+    ...mc('is moving', [
+      ['will move', 'will_for_fixed_arrangement'],
+      ['moves', 'present_simple_for_arrangement'],
+    ]),
+    explanation: 'Flights already booked signal a fixed arrangement - Present Continuous.',
+    distractorExplanations: {
+      b: "'will move' loses the sense of an already-confirmed, booked plan.",
+      c: "'moves' (Present Simple) suggests a routine, not a one-time arranged move.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 5,
+    conceptTags: ['future_time_clause_present'],
+    questionType: 'ERROR_DETECTION',
+    difficulty: 'MEDIUM',
+    stem: 'Which sentence is correct?',
+    ...mc('As soon as I arrive, I will call you.', [
+      ['As soon as I will arrive, I will call you.', 'will_in_time_clause'],
+      ['As soon as I am arriving, I will call you.', 'present_continuous_in_time_clause'],
+    ]),
+    explanation: "The time clause after 'as soon as' uses Present Simple, not 'will'.",
+    distractorExplanations: {
+      b: "'will arrive' is incorrect inside a time clause.",
+      c: "'am arriving' is not the standard present tense used in this type of time clause.",
+    },
+    minTimeSeconds: 10,
+    timeLimitSeconds: 35,
+  },
+  {
+    unit: 5,
+    conceptTags: ['present_simple_future_timetable', 'be_going_to_plan'],
+    questionType: 'ERROR_DETECTION',
+    difficulty: 'MEDIUM',
+    stem: 'Which sentence is correct?',
+    ...mc('The film starts at 7:30pm.', [
+      ['The film will start at 7:30pm, I promise.', 'will_for_timetable'],
+      ['The film is going to start at 7:30pm.', 'be_going_to_for_timetable'],
+    ]),
+    explanation: 'A fixed schedule (cinema showtime) is expressed with Present Simple.',
+    distractorExplanations: {
+      b: "Combining 'will' with 'I promise' misapplies a personal-commitment form to a fixed schedule.",
+      c: "'be going to' is used for plans/predictions, not officially fixed showtimes.",
+    },
+    minTimeSeconds: 10,
+    timeLimitSeconds: 35,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// UNIT 6 - Vocabulary: Science and technology
+// ---------------------------------------------------------------------------
+const UNIT_6_CONCEPTS: ConceptSeed[] = [
+  { unit: 6, name: 'tech_word_formation', category: 'VOCABULARY' },
+  { unit: 6, name: 'tech_collocations', category: 'VOCABULARY' },
+  { unit: 6, name: 'tech_confusable_words', category: 'VOCABULARY' },
+  { unit: 6, name: 'tech_phrasal_verbs', category: 'VOCABULARY' },
+  { unit: 6, name: 'science_core_vocab', category: 'VOCABULARY' },
+  { unit: 6, name: 'tech_idioms_expressions', category: 'VOCABULARY' },
+];
+
+const UNIT_6_QUESTIONS: QuestionSeed[] = [
+  {
+    unit: 6,
+    conceptTags: ['tech_collocations', 'science_core_vocab'],
+    questionType: 'RECOGNITION',
+    difficulty: 'MEDIUM',
+    stem: 'The scientist made a major ___ in cancer research.',
+    ...mc('breakthrough', [
+      ['discovery', 'wrong_collocation_noun'],
+      ['invention', 'wrong_collocation_noun'],
+    ]),
+    explanation: "'Make a breakthrough' is the standard collocation for a major advance in research.",
+    distractorExplanations: {
+      b: "'discovery' is possible on its own but doesn't fit the fixed collocation 'make a breakthrough' here.",
+      c: "'invention' implies creating a device, not making progress in research.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 6,
+    conceptTags: ['tech_confusable_words'],
+    questionType: 'RECOGNITION',
+    difficulty: 'MEDIUM',
+    stem: 'Alexander Fleming ___ penicillin by accident in 1928.',
+    ...mc('discovered', [
+      ['invented', 'confusable_verb_discover_invent'],
+      ['developed', 'confusable_verb_discover_develop'],
+    ]),
+    explanation: "'Discover' means to find something that already existed in nature.",
+    distractorExplanations: {
+      b: "'invented' means to create something new, not to find something already existing.",
+      c: "'developed' means to improve or build on something over time, not a one-off accidental finding.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 6,
+    conceptTags: ['tech_word_formation'],
+    questionType: 'RECOGNITION',
+    difficulty: 'EASY',
+    stem: 'This smartphone has an ___ design that makes it very easy to use.',
+    ...mc('innovative', [
+      ['innovation', 'wrong_word_form_noun_for_adjective'],
+      ['innovatively', 'wrong_word_form_adverb_for_adjective'],
+    ]),
+    explanation: "Describing a noun ('design') needs the adjective form 'innovative'.",
+    distractorExplanations: {
+      b: "'innovation' is a noun, but an adjective is needed before 'design'.",
+      c: "'innovatively' is an adverb and cannot directly describe a noun.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 6,
+    conceptTags: ['tech_phrasal_verbs'],
+    questionType: 'RECOGNITION',
+    difficulty: 'MEDIUM',
+    stem: 'Researchers need to ___ several experiments before publishing their results.',
+    ...mc('carry out', [
+      ['carry on', 'phrasal_verb_confusion'],
+      ['carry away', 'phrasal_verb_confusion'],
+    ]),
+    explanation: "'Carry out' means to perform or conduct (an experiment, a plan).",
+    distractorExplanations: {
+      b: "'carry on' means to continue doing something.",
+      c: "'carry away' (often passive, 'get carried away') means to become very excited and lose control.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 6,
+    conceptTags: ['tech_phrasal_verbs'],
+    questionType: 'APPLICATION',
+    difficulty: 'MEDIUM',
+    stem: "After years of work, the team finally ___ a solution to the energy storage problem.",
+    ...mc('came up with', [
+      ['came up to', 'nonstandard_phrasal_verb'],
+      ['came on with', 'nonstandard_phrasal_verb'],
+    ]),
+    explanation: "'Come up with' means to think of or produce an idea or solution.",
+    distractorExplanations: {
+      b: "'came up to' is not a standard phrasal verb with this meaning.",
+      c: "'came on with' is not a standard English phrasal verb.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 6,
+    conceptTags: ['tech_idioms_expressions'],
+    questionType: 'APPLICATION',
+    difficulty: 'MEDIUM',
+    stem: "The company's new electric engine is considered ___ technology in the industry.",
+    ...mc('cutting-edge', [
+      ['old-fashioned', 'idiom_confusion'],
+      ['second-hand', 'idiom_confusion'],
+    ]),
+    explanation: "'Cutting-edge' describes the most modern, advanced technology available.",
+    distractorExplanations: {
+      b: "'old-fashioned' means outdated - the opposite meaning intended here.",
+      c: "'second-hand' means previously owned/used, unrelated to how advanced something is.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 6,
+    conceptTags: ['tech_confusable_words'],
+    questionType: 'APPLICATION',
+    difficulty: 'HARD',
+    stem: 'The pharmaceutical lab ___ a new vaccine after testing it on thousands of volunteers.',
+    ...mc('developed', [
+      ['discovered', 'confusable_verb_discover_develop'],
+      ['invented', 'confusable_verb_invent_develop'],
+    ]),
+    explanation: "'Develop' fits a process of research and improvement over time, like creating a vaccine.",
+    distractorExplanations: {
+      b: "'discovered' implies finding something already existing, not building it through research.",
+      c: "'invented' suggests creating something entirely from scratch, less natural for a vaccine developed through trials.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 6,
+    conceptTags: ['tech_word_formation'],
+    questionType: 'APPLICATION',
+    difficulty: 'MEDIUM',
+    stem: 'Her presentation on renewable energy was both ___ and easy to follow.',
+    ...mc('informative', [
+      ['informational', 'wrong_word_form_similar_adjective'],
+      ['information', 'wrong_word_form_noun_for_adjective'],
+    ]),
+    explanation: "'Informative' describes something that gives useful, engaging information.",
+    distractorExplanations: {
+      b: "'informational' is a less natural choice here, usually describing neutral factual material rather than an engaging quality.",
+      c: "'information' is a noun and cannot directly describe the presentation this way.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 6,
+    conceptTags: ['tech_phrasal_verbs'],
+    questionType: 'ERROR_DETECTION',
+    difficulty: 'MEDIUM',
+    stem: 'Which sentence is correct?',
+    ...mc('Scientists need to carry out more tests before approving the drug.', [
+      ['Scientists need to carry on more tests before approving the drug.', 'phrasal_verb_confusion'],
+      ['Scientists need to carry up more tests before approving the drug.', 'nonstandard_phrasal_verb'],
+    ]),
+    explanation: "'Carry out' (perform/conduct) is the correct phrasal verb for running tests.",
+    distractorExplanations: {
+      b: "'carry on' means to continue, not to perform/conduct something.",
+      c: "'carry up' is not a standard English phrasal verb.",
+    },
+    minTimeSeconds: 10,
+    timeLimitSeconds: 35,
+  },
+  {
+    unit: 6,
+    conceptTags: ['tech_confusable_words'],
+    questionType: 'ERROR_DETECTION',
+    difficulty: 'MEDIUM',
+    stem: 'Which sentence is correct?',
+    ...mc('Marie Curie discovered radium.', [
+      ['Marie Curie invented radium.', 'confusable_verb_discover_invent'],
+      ['Marie Curie developed radium.', 'confusable_verb_discover_develop'],
+    ]),
+    explanation: "Radium already existed in nature - Curie 'discovered' it, she didn't create or improve it.",
+    distractorExplanations: {
+      b: "'invented' wrongly implies radium didn't exist before and was created by her.",
+      c: "'developed' wrongly implies a process of building or improving something over time.",
+    },
+    minTimeSeconds: 10,
+    timeLimitSeconds: 35,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// UNIT 7 - Grammar: Articles, countable/uncountable, quantifiers
+// ---------------------------------------------------------------------------
+const UNIT_7_CONCEPTS: ConceptSeed[] = [
+  { unit: 7, name: 'indefinite_article_a_an', category: 'GRAMMAR' },
+  { unit: 7, name: 'definite_article_the', category: 'GRAMMAR' },
+  { unit: 7, name: 'zero_article_general', category: 'GRAMMAR' },
+  { unit: 7, name: 'countable_uncountable_distinction', category: 'GRAMMAR' },
+  { unit: 7, name: 'quantifier_some_any', category: 'GRAMMAR' },
+  { unit: 7, name: 'quantifier_much_many_little_few', category: 'GRAMMAR' },
+];
+
+const UNIT_7_QUESTIONS: QuestionSeed[] = [
+  {
+    unit: 7,
+    conceptTags: ['indefinite_article_a_an'],
+    questionType: 'RECOGNITION',
+    difficulty: 'EASY',
+    stem: 'I saw ___ elephant at the zoo yesterday.',
+    ...mc('an', [
+      ['a', 'wrong_article_before_vowel_sound'],
+      ['the', 'definite_article_for_first_mention'],
+    ]),
+    explanation: "'An' is used before a vowel sound ('elephant').",
+    distractorExplanations: {
+      b: "'a' is used before a consonant sound, not a vowel sound like 'elephant'.",
+      c: "'the' would wrongly imply the elephant was already known/specific before this first mention.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 7,
+    conceptTags: ['definite_article_the'],
+    questionType: 'RECOGNITION',
+    difficulty: 'MEDIUM',
+    stem: 'I bought a book yesterday. ___ book was really interesting.',
+    ...mc('The', [
+      ['A', 'indefinite_article_for_already_mentioned'],
+      ['Some', 'quantifier_with_singular_countable_noun'],
+    ]),
+    explanation: "Once a noun has been mentioned once, later references use 'the'.",
+    distractorExplanations: {
+      b: "'A' is for first mentions; this book was already introduced in the previous sentence.",
+      c: "'Some' doesn't go with a specific singular countable noun like this.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 7,
+    conceptTags: ['zero_article_general'],
+    questionType: 'RECOGNITION',
+    difficulty: 'MEDIUM',
+    stem: '___ dangerous animals when they feel threatened.',
+    ...mc('Tigers are', [
+      ['The tigers are', 'unnecessary_definite_article_general_concept'],
+      ['A tigers is', 'article_number_mismatch'],
+    ]),
+    explanation: "A general statement about a whole category uses no article with the plural noun.",
+    distractorExplanations: {
+      b: "'The tigers' wrongly suggests specific, already-known tigers rather than tigers in general.",
+      c: "'A' cannot be used with a plural noun like 'tigers'.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 7,
+    conceptTags: ['quantifier_some_any', 'countable_uncountable_distinction'],
+    questionType: 'RECOGNITION',
+    difficulty: 'MEDIUM',
+    stem: "I'd like ___ information about your new product line.",
+    ...mc('some', [
+      ['any', 'some_any_confusion_in_statement'],
+      ['a', 'article_with_uncountable_noun'],
+    ]),
+    explanation: "'Some' fits a positive statement/request; 'information' is uncountable so it can't take 'a'.",
+    distractorExplanations: {
+      b: "'any' is typically used in negatives/questions, not in a polite positive request like this.",
+      c: "'information' is uncountable and cannot be used with 'a'.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 7,
+    conceptTags: ['quantifier_some_any'],
+    questionType: 'APPLICATION',
+    difficulty: 'MEDIUM',
+    stem: "There isn't ___ milk left in the fridge - we need to buy more.",
+    ...mc('any', [
+      ['some', 'some_any_confusion_in_negative'],
+      ['a', 'article_with_uncountable_noun'],
+    ]),
+    explanation: "'Any' is used in negative sentences.",
+    distractorExplanations: {
+      b: "'some' is typically used in positive statements, not negatives like this.",
+      c: "'milk' is uncountable and cannot be used with 'a'.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 7,
+    conceptTags: ['quantifier_much_many_little_few', 'countable_uncountable_distinction'],
+    questionType: 'APPLICATION',
+    difficulty: 'HARD',
+    stem: "We have ___ time before the meeting starts, so let's grab a coffee.",
+    ...mc('a little', [
+      ['a few', 'little_few_confusion'],
+      ['much', 'much_many_confusion'],
+    ]),
+    explanation: "'Time' is uncountable, and 'a little' expresses a small positive amount in an affirmative sentence.",
+    distractorExplanations: {
+      b: "'a few' is used with countable nouns, but 'time' here is uncountable.",
+      c: "'much' is more natural in questions/negatives than in this kind of affirmative statement.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 7,
+    conceptTags: ['quantifier_much_many_little_few', 'countable_uncountable_distinction'],
+    questionType: 'APPLICATION',
+    difficulty: 'MEDIUM',
+    stem: 'Only ___ people showed up to the lecture, so it was cancelled.',
+    ...mc('a few', [
+      ['a little', 'little_few_confusion'],
+      ['much', 'much_many_confusion'],
+    ]),
+    explanation: "'People' is countable, so 'a few' is the correct quantifier.",
+    distractorExplanations: {
+      b: "'a little' is used with uncountable nouns, but 'people' is countable.",
+      c: "'much' pairs with uncountable nouns, not countable ones like 'people'.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 7,
+    conceptTags: ['indefinite_article_a_an'],
+    questionType: 'APPLICATION',
+    difficulty: 'MEDIUM',
+    stem: 'Could I ask you ___ favour?',
+    ...mc('a', [
+      ['the', 'definite_article_for_first_mention'],
+      ['some', 'quantifier_with_singular_countable_noun'],
+    ]),
+    explanation: "A single, unspecified favour being mentioned for the first time takes 'a'.",
+    distractorExplanations: {
+      b: "'the' would wrongly imply a specific favour already known to both speakers.",
+      c: "'some' doesn't go with a singular countable noun like 'favour'.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 7,
+    conceptTags: ['countable_uncountable_distinction', 'quantifier_much_many_little_few'],
+    questionType: 'ERROR_DETECTION',
+    difficulty: 'MEDIUM',
+    stem: 'Which sentence is correct?',
+    ...mc('I need some advice about my career.', [
+      ['I need a advice about my career.', 'article_with_uncountable_noun'],
+      ['I need many advice about my career.', 'much_many_confusion'],
+    ]),
+    explanation: "'Advice' is uncountable - it takes 'some', not 'a' or 'many'.",
+    distractorExplanations: {
+      b: "'a' cannot be used with the uncountable noun 'advice'.",
+      c: "'many' is used with countable nouns, not with uncountable 'advice'.",
+    },
+    minTimeSeconds: 10,
+    timeLimitSeconds: 35,
+  },
+  {
+    unit: 7,
+    conceptTags: ['quantifier_much_many_little_few'],
+    questionType: 'ERROR_DETECTION',
+    difficulty: 'MEDIUM',
+    stem: 'Which sentence is correct?',
+    ...mc('She gave me a few useful tips.', [
+      ['She gave me a little useful tips.', 'little_few_confusion'],
+      ['She gave me much useful tips.', 'much_many_confusion'],
+    ]),
+    explanation: "'Tips' is countable, so 'a few' is the correct quantifier.",
+    distractorExplanations: {
+      b: "'a little' is used with uncountable nouns, not countable 'tips'.",
+      c: "'much' pairs with uncountable nouns, not countable 'tips'.",
+    },
+    minTimeSeconds: 10,
+    timeLimitSeconds: 35,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// UNIT 8 - Vocabulary: The media
+// ---------------------------------------------------------------------------
+const UNIT_8_CONCEPTS: ConceptSeed[] = [
+  { unit: 8, name: 'media_core_vocab', category: 'VOCABULARY' },
+  { unit: 8, name: 'media_collocations', category: 'VOCABULARY' },
+  { unit: 8, name: 'media_confusable_words', category: 'VOCABULARY' },
+  { unit: 8, name: 'media_phrasal_verbs', category: 'VOCABULARY' },
+  { unit: 8, name: 'media_word_formation', category: 'VOCABULARY' },
+  { unit: 8, name: 'media_idioms_expressions', category: 'VOCABULARY' },
+];
+
+const UNIT_8_QUESTIONS: QuestionSeed[] = [
+  {
+    unit: 8,
+    conceptTags: ['media_core_vocab', 'media_collocations'],
+    questionType: 'RECOGNITION',
+    difficulty: 'MEDIUM',
+    stem: 'The newspaper gave extensive ___ to the election results.',
+    ...mc('coverage', [
+      ['broadcast', 'wrong_collocation_noun'],
+      ['headline', 'wrong_collocation_noun'],
+    ]),
+    explanation: "'Coverage' describes the extent of reporting on an event.",
+    distractorExplanations: {
+      b: "'broadcast' refers to the transmission itself (usually TV/radio), not the extent of print reporting.",
+      c: "'headline' is the title of an article, not the extent of coverage.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 8,
+    conceptTags: ['media_collocations'],
+    questionType: 'RECOGNITION',
+    difficulty: 'MEDIUM',
+    stem: 'The journalist was the first to ___ the corruption scandal.',
+    ...mc('break', [
+      ['cut', 'wrong_collocation_verb'],
+      ['open', 'wrong_collocation_verb'],
+    ]),
+    explanation: "'Break a story' means to be the first to report it.",
+    distractorExplanations: {
+      b: "'cut a scandal' is not a standard English collocation.",
+      c: "'open a scandal' is not a standard English collocation.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 8,
+    conceptTags: ['media_confusable_words'],
+    questionType: 'RECOGNITION',
+    difficulty: 'MEDIUM',
+    stem: 'Many young people now get their news from online ___ rather than printed newspapers.',
+    ...mc('sources', [
+      ['journals', 'confusable_noun_mismatch'],
+      ['magazines', 'confusable_noun_mismatch'],
+    ]),
+    explanation: "'Sources' broadly covers where news comes from, including websites and apps.",
+    distractorExplanations: {
+      b: "'journals' usually refers to academic or professional publications, not general news sites.",
+      c: "'magazines' refers to periodicals with articles/photos, not general online news sources.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 8,
+    conceptTags: ['media_phrasal_verbs'],
+    questionType: 'RECOGNITION',
+    difficulty: 'EASY',
+    stem: 'The reporter had to ___ the protest live from the city centre.',
+    ...mc('report on', [
+      ['tell on', 'wrong_collocation_verb'],
+      ['speak on', 'wrong_collocation_verb'],
+    ]),
+    explanation: "'Report on' is the standard phrasal verb for journalists covering an event.",
+    distractorExplanations: {
+      b: "'tell on' means to inform an authority about someone's bad behaviour - unrelated meaning.",
+      c: "'speak on' is not the standard phrasal verb for reporting on an event.",
+    },
+    minTimeSeconds: 8,
+    timeLimitSeconds: 30,
+  },
+  {
+    unit: 8,
+    conceptTags: ['media_phrasal_verbs'],
+    questionType: 'APPLICATION',
+    difficulty: 'HARD',
+    stem: 'Details of the merger ___ to the press before the official announcement.',
+    ...mc('leaked out', [
+      ['broke out', 'phrasal_verb_confusion'],
+      ['came out', 'phrasal_verb_confusion'],
+    ]),
+    explanation: "'Leak out' means secret information becomes known without official permission.",
+    distractorExplanations: {
+      b: "'break out' is normally used for fires, wars, or disease suddenly starting.",
+      c: "'came out' is more general and doesn't specifically capture the idea of secret information escaping.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 8,
+    conceptTags: ['media_word_formation'],
+    questionType: 'APPLICATION',
+    difficulty: 'MEDIUM',
+    stem: 'As a trained ___, she always double-checks her facts before publishing.',
+    ...mc('journalist', [
+      ['journalism', 'wrong_word_form_abstract_noun_for_person'],
+      ['journalistic', 'wrong_word_form_adjective_for_noun'],
+    ]),
+    explanation: "'Journalist' is the person who does the job; the sentence needs a person noun.",
+    distractorExplanations: {
+      b: "'journalism' is the abstract field/profession, not a person.",
+      c: "'journalistic' is an adjective and cannot be the person doing the job.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 8,
+    conceptTags: ['media_idioms_expressions'],
+    questionType: 'APPLICATION',
+    difficulty: 'HARD',
+    stem: 'The scandal became ___ within hours of breaking.',
+    ...mc('front-page news', [
+      ['old news', 'idiom_confusion'],
+      ['off the record', 'idiom_confusion'],
+    ]),
+    explanation: "'Front-page news' describes something considered highly important and widely reported.",
+    distractorExplanations: {
+      b: "'old news' means something no longer interesting - the opposite of the intended meaning.",
+      c: "'off the record' means unofficial/not for publication, unrelated to becoming widely reported.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 8,
+    conceptTags: ['media_core_vocab'],
+    questionType: 'APPLICATION',
+    difficulty: 'MEDIUM',
+    stem: "The TV station's evening ___ reaches millions of viewers every night.",
+    ...mc('broadcast', [
+      ['coverage', 'wrong_collocation_noun'],
+      ['headline', 'wrong_collocation_noun'],
+    ]),
+    explanation: "'Broadcast' refers to the transmitted programme itself.",
+    distractorExplanations: {
+      b: "'coverage' refers to the extent of reporting on a topic, not the transmitted programme.",
+      c: "'headline' is the title of a single story, not an entire evening programme.",
+    },
+    minTimeSeconds: 12,
+    timeLimitSeconds: 40,
+  },
+  {
+    unit: 8,
+    conceptTags: ['media_confusable_words'],
+    questionType: 'ERROR_DETECTION',
+    difficulty: 'MEDIUM',
+    stem: 'Which sentence is correct?',
+    ...mc("The scientist's findings were published in a respected journal.", [
+      ["The scientist's findings were published in a respected magazine.", 'confusable_noun_mismatch'],
+      ["The scientist's findings were published in a respected newspaper.", 'confusable_noun_mismatch'],
+    ]),
+    explanation: "Academic research findings are published in a 'journal', a specialised professional publication.",
+    distractorExplanations: {
+      b: "'magazine' usually refers to general-interest periodicals, not academic research publications.",
+      c: "'newspaper' publishes daily news, not formal academic research findings.",
+    },
+    minTimeSeconds: 10,
+    timeLimitSeconds: 35,
+  },
+  {
+    unit: 8,
+    conceptTags: ['media_idioms_expressions'],
+    questionType: 'ERROR_DETECTION',
+    difficulty: 'HARD',
+    stem: 'Which sentence is correct?',
+    ...mc('The minister refused to comment and said it was off the record.', [
+      ['The minister refused to comment and said it was off the hook.', 'idiom_confusion'],
+      ['The minister refused to comment and said it was off the cuff.', 'idiom_confusion'],
+    ]),
+    explanation: "'Off the record' means information given unofficially, not for publication.",
+    distractorExplanations: {
+      b: "'off the hook' means no longer blamed or responsible for something - unrelated meaning.",
+      c: "'off the cuff' means said without preparation - unrelated meaning.",
+    },
+    minTimeSeconds: 10,
+    timeLimitSeconds: 35,
+  },
+];
+
+const ALL_CONCEPTS = [
+  ...UNIT_1_CONCEPTS,
+  ...UNIT_2_CONCEPTS,
+  ...UNIT_3_CONCEPTS,
+  ...UNIT_4_CONCEPTS,
+  ...UNIT_5_CONCEPTS,
+  ...UNIT_6_CONCEPTS,
+  ...UNIT_7_CONCEPTS,
+  ...UNIT_8_CONCEPTS,
+];
+const ALL_QUESTIONS = [
+  ...UNIT_1_QUESTIONS,
+  ...UNIT_2_QUESTIONS,
+  ...UNIT_3_QUESTIONS,
+  ...UNIT_4_QUESTIONS,
+  ...UNIT_5_QUESTIONS,
+  ...UNIT_6_QUESTIONS,
+  ...UNIT_7_QUESTIONS,
+  ...UNIT_8_QUESTIONS,
+];
 
 async function main() {
   await prisma.englishQuestion.deleteMany({ where: { unit: { in: SEEDED_UNITS } } });
